@@ -1,0 +1,16 @@
+data/
+.preview-data/
+backups/
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.sql
+*.sql.gz
+*.zip
+*.log
+*恢复卡*
+node_modules/
