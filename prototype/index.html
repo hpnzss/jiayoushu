@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>家有数 · 家庭资产管理原型</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="client-common.js"></script><script defer src="expenses-report.js"></script><script defer src="report.js"></script><script defer src="ui.js"></script><script defer src="expenses-ui.js"></script><script defer src="session-ui.js"></script><script defer src="backup-ui.js"></script><script defer src="workflow-ui.js"></script><script defer src="choices-ui.js"></script><script defer src="direct-ui.js"></script>
+</head>
+<body>
+<aside class="sidebar">
+  <div class="brand"><span class="logo">家</span><div>家有数<small>让家庭财富有迹可循</small></div></div>
+  <div class="family">我们的家庭 <span>2 位成员</span></div>
+  <nav aria-label="主导航"><a href="#overview" data-route="overview">◫ <span>家庭总览</span></a><a href="#entry" data-route="entry">✧ <span>智能录入</span></a><a href="#income" data-route="income">▥ <span>收入统计</span></a><a href="#assets" data-route="assets">▤ <span>资产盘点</span></a><a href="#settings" data-route="settings">⚙ <span>设置与备份</span></a></nav>
+  <div class="side-note"><strong>每一次盘点，<br>都让生活更清晰。</strong><p>收入分别记录<br>资产共同看见</p></div>
+  <div class="prototype">本地交互原型 · 虚拟数据</div>
+</aside>
+<main>
+  <header><div class="eyebrow" id="pageEyebrow">FAMILY FINANCE / 家庭总览</div><div class="heading"><div><h1 id="pageTitle">看见家庭的每一步积累<span>。</span></h1><p id="pageSubtitle">家庭收入、资产与变化，一眼看清。</p></div><span class="badge">五页面原型 · 虚拟数据</span></div></header>
+  <div class="demo-notice" id="appNotice">当前为操作预览，所有金额均为虚拟数据。草稿和盘点试算只在本页临时保留，刷新即清空；尚未连接 AI、登录与正式数据库。</div>
+  <div id="reportControls">
+  <section class="filters" aria-label="报告筛选">
+    <div class="segments" aria-label="汇总周期"><button data-mode="month">月度</button><button data-mode="year" class="active">年度</button><button data-mode="custom">自选时间段</button></div>
+    <div class="date-controls"><label id="periodLabel">年份 <input id="period" type="number" value="2026" min="2020" max="2100"></label><label>开始 <input id="start" type="date" value="2026-01-01"></label><label>结束 <input id="end" type="date" value="2026-10-15"></label></div>
+    <button id="export" class="outline">导出收入 CSV ↗</button>
+  </section>
+  <div id="error" role="alert"></div>
+  <div class="period-caption"><strong id="range"></strong><span>上海时间 · 起止日均包含</span></div>
+  </div>
+  <section data-page="overview" aria-label="家庭总览">
+  <section class="stats" aria-label="关键指标">
+    <article class="metric primary"><div>期末家庭资产 <span>家庭口径</span></div><strong id="assetValue"></strong><p id="assetDate"></p></article>
+    <article class="metric"><div>期间资产变化</div><strong id="deltaValue"></strong><p id="openingDate"></p></article>
+    <article class="metric"><div id="incomeTitle">期间家庭收入</div><strong id="incomeValue"></strong><p>按收入日期统计，内部转账不计入</p></article>
+    <article class="metric"><div>扣除已录收支后的差额</div><strong id="gapValue"></strong><p>家庭口径 · 未录事项、投资和汇率变化等，不等于投资收益</p></article>
+  </section>
+  <div class="expense-kpis"><article><span>期间已录家庭支出</span><strong id="overviewExpense">尚未记录</strong></article><article><span>已录收入减支出</span><strong id="overviewNet">—</strong></article><p id="overviewExpenseNote">不要求每天记账，每月填总额也可以。</p></div>
+  <div id="portfolioOverview" class="demo-notice" style="margin-top:18px" hidden></div>
+  <section id="trend" class="panel trend"><div class="panel-head"><div><h2>家庭资产，随时间生长</h2><p>圆点为完整盘点记录；虚线起点为区间前参考值。</p></div><button id="chartExport" class="outline">导出图表 ↗</button></div><div id="assetChart" class="chart"></div><div id="chartNote" class="chart-note"></div></section>
+  <div class="quick-links"><a href="#entry">＋ 记录收入、支出或转账 <span>进入智能录入 →</span></a><a href="#assets">更新账户实际余额 <span>进入资产盘点 →</span></a><a href="#income">查看两人的收入 <span>进入收入统计 →</span></a></div>
+  </section>
+  <section data-page="income" aria-label="收入统计" hidden>
+    <div class="income-summary"><span id="reportIncomeLabel">期间家庭收入</span><strong id="reportIncomeValue"></strong><small>按收入日期汇总 · 不包含内部转账</small></div>
+    <section class="panel"><div class="panel-head"><div><h2>收入随时间变化</h2><p id="incomeTrendNote"></p></div></div><div id="incomeTrend" class="income-trend"></div></section>
+    <article id="income" class="panel"><div class="panel-head"><div><h2>两个人的收入，一起看</h2><p>成员筛选只作用于收入；支出和资产始终按全家统计。</p></div></div><div class="segments compact" id="members"><button class="active" data-member="全家">全家</button><button data-member="成员一">成员一</button><button data-member="成员二">成员二</button></div><div id="memberBars"></div><div class="source-label">收入来源分布</div><div id="sources"></div></article>
+  <section id="details" class="panel"><div class="panel-head"><div><h2>每一笔收入，都有来处</h2><p>收入归属、来源和到账账户分开记录。</p></div><span class="muted" id="rowCount"></span></div><div class="table-scroll"><table><thead><tr><th>日期</th><th>收入归属</th><th>来源</th><th>到账账户</th><th class="right">金额</th></tr></thead><tbody id="incomeRows"></tbody></table></div></section>
+  </section>
+  <section data-page="entry" aria-label="智能录入" hidden>
+    <article class="panel" id="monthlyExpensePanel"><div class="panel-head"><div><h2>每月支出 · 填一个总数就够了</h2><p>每个人各填一个月度支出净总额，家庭自动合计；不需要逐笔记录，也不用选择付款账户。</p></div><span class="status-tag">可选，不用开期</span></div>
+      <form id="monthlyExpenseForm" class="form-grid">
+        <label class="field">月份<input id="expenseMonth" type="month" required></label>
+        <label class="field" id="expenseTotalField">支出净总额（人民币，退款扣除后）<input id="expenseTotal" type="number" step="0.01" required placeholder="未填写与0元不同"></label>
+        <label class="field" id="expenseThroughField">这份总额统计到哪一天<input id="expenseThrough" type="date" required></label>
+        <label class="field full">备注<input id="expenseTotalMemo" maxlength="200" placeholder="如：微信、支付宝、银行卡已去重；退款已扣除，包含手续费"></label>
+        <p id="expenseModeNote" class="muted full"></p>
+        <button class="solid full" id="saveMonthlyExpense" type="submit">确认并保存月度支出</button>
+      </form><p id="monthlyExpenseStatus" class="muted" role="status"></p>
+    </article>
+    <article class="panel"><div class="panel-head"><div><h2>粘贴导入 · 无需 AI API</h2><p>把文字或截图发给聊天助手，按本软件的格式整理，再将结果粘贴到这里。</p></div><span class="status-tag" id="ledgerConnection">正在检查账本连接</span></div>
+      <div class="actions"><button class="outline" id="copyGuide">复制给聊天助手的格式说明</button><button class="outline" id="importExample">填入虚拟导入示例</button></div>
+      <label class="field" style="margin-top:16px">导入数据（JSON）<textarea id="importText" rows="7" placeholder="粘贴助手返回的 JSON 数据，不是命令，也不需要进入 Docker 终端。"></textarea></label>
+      <button class="solid" id="previewImport">检查并预览</button><p id="importMessage" role="status" class="muted"></p>
+      <pre id="guidePreview" class="guide-preview" hidden></pre>
+      <p class="muted">同一时点先处理流水再确认余额，更晚流水继续更新。请核对截图时间，不用较早截图覆盖较晚状态。</p>
+    </article>
+    <div class="two-cols entry-layout">
+      <article class="panel"><div class="panel-head"><div><h2>说一句话，或发一张截图</h2><p>正式版本由 AI 整理成草稿，经你确认后保存。</p></div><span class="status-tag">AI 待接入</span></div>
+        <label class="field">描述收入、转账或账户余额<textarea id="naturalText" rows="5" placeholder="例如：今天成员一工资到账15000元，进招行工资卡，招行现在有62000元。"></textarea></label>
+        <label class="upload">选择截图，预览上传体验<input id="screenshotInput" type="file" accept="image/png,image/jpeg,image/webp"><small>只在本机预览，不会上传或识别。请使用虚拟截图。</small></label>
+        <img id="imagePreview" class="image-preview" alt="所选演示截图的本机预览" hidden><p id="imageNote" class="muted" role="status"></p>
+        <div class="actions"><button id="sampleDraft" class="solid">查看示例识别草稿</button><button disabled class="outline">AI 整理（待接入）</button></div><p class="muted">示例按钮展示固定流程，不会识别你输入的文字或图片。</p>
+      </article>
+      <article class="panel"><div class="panel-head"><div><h2>也可以手动填写</h2><p>先试用字段和确认步骤，不影响报告中的示例账本。</p></div></div>
+        <form id="manualForm" class="form-grid">
+          <label class="field">记录类型<select id="recordKind"><option value="income">收入</option><option value="transfer">账户转账</option><option value="balance">余额盘点</option></select></label>
+          <label class="field">发生日期<input id="recordDate" type="date" value="2026-10-15" required></label>
+          <label class="field full">发生时间（可选，补录时请核对）<input id="recordTime" type="time" step="1"><small>留空：当天新增按保存时间，历史余额视为日终。同日先盘点后转账会继续更新余额；补录更早事项请填写时间。</small></label>
+          <label class="field" id="memberField">收入归属<select id="recordMember"><option>成员一</option><option>成员二</option></select></label>
+          <label class="field" id="sourceField">收入分类<select id="recordSource" required><option>工资奖金</option><option>公积金</option><option>开会讲课</option><option>股票</option><option>其他</option></select></label>
+          <label class="field"><span id="accountLabel">到账账户</span><select id="recordAccount"></select></label>
+          <label class="field" id="targetField" hidden>转入账户<select id="targetAccount"></select></label>
+          <label class="field"><span id="amountLabel">金额（元）</span><input id="recordAmount" type="number" min="0.01" step="0.01" required placeholder="0.00"></label>
+          <label class="field" id="targetAmountField" hidden><span id="targetAmountLabel">实际到账金额</span><input id="recordTargetAmount" type="number" min="0.01" step="0.01"></label>
+          <label class="field" id="feeField" hidden><span id="feeLabel">转出账户手续费（本金之外另扣）</span><input id="recordFee" type="number" min="0" step="0.01" value="0"></label>
+          <label class="field full">汇率方式<select id="recordFxMode"><option value="auto">自动汇率（保存时固定）</option><option value="manual">手动参考汇率（历史补录）</option></select></label>
+          <label class="field" id="recordRateField" hidden><span id="recordRateLabel">转出／到账账户：1原币折合人民币</span><input id="recordRate" type="number" min="0.0000000001" step="0.0000000001"></label>
+          <label class="field" id="targetRateField" hidden><span id="targetRateLabel">转入账户：1原币折合人民币</span><input id="targetRate" type="number" min="0.0000000001" step="0.0000000001"></label>
+          <label class="field" id="recordRateDateField" hidden>参考汇率日期<input id="recordRateDate" type="date"></label>
+          <label class="field" id="recordRateSourceField" hidden>汇率来源<input id="recordRateSource" maxlength="100" placeholder="例如经核对的历史参考汇率"></label>
+          <label class="field full">备注<input id="recordMemo" maxlength="120" placeholder="可选"></label>
+          <button class="solid full" type="submit">生成待确认草稿</button>
+        </form>
+      </article>
+    </div>
+    <article class="panel" id="draftPanel"><div class="panel-head"><div><h2>待确认草稿</h2><p>先核对金额、日期、成员和账户。需要修改时可回到输入区重新生成。</p></div></div><div id="draftContent" class="empty">还没有草稿。可以试用左侧示例或右侧手动填写。</div><div class="actions" id="draftActions" hidden><button id="confirmDraft" class="solid">确认演示草稿</button><button id="discardDraft" class="outline">放弃草稿</button></div><p id="draftStatus" role="status" class="muted"></p></article>
+  </section>
+  <section data-page="assets" aria-label="资产盘点" hidden>
+    <article class="panel"><div class="panel-head"><div><h2>外币、股票与员工股权</h2><p>已持有资产计入家庭总额；待归属RSU单列。ESPP只记录实际到账股票。</p></div><span class="status-tag">保存估值与汇率</span></div>
+      <div class="portfolio-summary"><span>已记录持仓 <strong id="holdingCount">0 项</strong></span><span>待归属RSU参考值 <strong id="rsuValue">—</strong><small>不计入主要家庭资产</small></span></div>
+      <div id="holdingRows" class="holding-list"><p class="empty">尚未记录外币或股票持仓</p></div>
+      <div class="two-cols"><div><h3 class="source-label">币种分布 · 折合人民币</h3><div id="currencyBreakdown"></div></div><div><h3 class="source-label">资产类型分布</h3><div id="typeBreakdown"></div></div></div>
+      <p id="allocationNote" class="muted"></p>
+      <p class="muted">账户原币数量、股票价格和汇率均按每次记录保存，后来的汇率更新不会改写这些记录。只录入自己能确认的资产；不要把券商总额与其股票、现金明细重复相加。</p>
+    </article>
+    <article class="panel"><div class="panel-head"><div><h2>记录持仓估值</h2><p>选择已有持仓更新，或新建外币余额、股票及待归属RSU。填写后仍需预览确认。</p></div></div>
+      <form id="holdingForm" class="form-grid">
+        <label class="field full">持仓<select id="holdingSelect"><option value="">新建一项持仓</option></select></label>
+        <label class="field">资产名称<input id="holdingName" required maxlength="80" placeholder="如：某银行美元储蓄／某券商公司股票"></label>
+        <label class="field">归属<select id="holdingOwner"><option>成员一</option><option>成员二</option><option>共同</option></select></label>
+        <label class="field">种类<select id="holdingKind"><option value="cash">外币余额</option><option value="stock">已持有股票</option><option value="rsu">待归属RSU</option></select></label>
+        <label class="field">币种<input id="holdingCurrency" required pattern="[A-Z]{3}" maxlength="3" value="USD" placeholder="USD / HKD / EUR"></label>
+        <label class="field">估值日期<input id="holdingDate" type="date" required></label>
+        <label class="field">持仓来源<select id="holdingOrigin"><option value="other">其他／存款</option><option value="purchase">自行买入</option><option value="rsu">RSU 已到账股票</option><option value="espp">ESPP 已到账股票</option></select></label>
+        <label class="field" id="holdingAmountField">原币余额<input id="holdingAmount" type="number" min="0" step="0.01" required></label>
+        <label class="field" id="holdingSymbolField" hidden>市场及股票代码<input id="holdingSymbol" maxlength="40" placeholder="如 NASDAQ:DEMO"></label>
+        <label class="field" id="holdingQuantityField" hidden>股数（可有小数）<input id="holdingQuantity" type="number" min="0" step="0.000001"></label>
+        <label class="field" id="holdingPriceField" hidden>每股原币价格<input id="holdingPrice" type="number" min="0" step="0.000001"></label>
+        <label class="field" id="holdingPriceDateField" hidden>股价日期<input id="holdingPriceDate" type="date"></label>
+        <label class="field" id="holdingVestField" hidden>预计归属日期（可选）<input id="holdingVestDate" type="date"></label>
+        <label class="field full">汇率方式<select id="holdingFxMode"><option value="auto">自动取得并固定本次使用的汇率</option><option value="manual">手动确认参考汇率（历史日期或缺失币种）</option></select></label>
+        <label class="field" id="holdingRateField" hidden>每1原币对应人民币<input id="holdingRate" type="number" min="0.0000000001" step="0.0000000001"></label>
+        <label class="field" id="holdingRateDateField" hidden>汇率日期<input id="holdingRateDate" type="date"></label>
+        <label class="field full" id="holdingRateSourceField" hidden>汇率来源<input id="holdingRateSource" maxlength="100" placeholder="如：银行当日参考汇率"></label>
+        <button class="solid full" type="submit">生成持仓草稿并预览</button>
+      </form><p id="holdingMessage" role="status" class="muted">股票价格暂由你填写，尚未接入自动行情。持仓更新不会自动增加工资收入。</p>
+    </article>
+    <div class="two-cols">
+      <article id="accounts" class="panel"><div class="panel-head"><div><h2>钱放在哪里</h2><p id="distributionDate"></p></div><span class="muted">最新示例完整盘点</span></div><div id="distribution"></div><div id="accountRows"></div></article>
+      <article class="panel"><div class="panel-head"><div><h2>更新一个账户的实际余额</h2><p>只更新选中的账户，其他账户不会清零。</p></div><span class="status-tag">试算</span></div><form id="balanceForm" class="form-grid"><label class="field full">盘点账户<select id="balanceAccount"></select></label><label class="field">盘点日期<input id="balanceDate" type="date" value="2026-10-15" min="2026-10-15" required></label><label class="field">实际余额（元）<input id="balanceAmount" type="number" min="0" step="0.01" required placeholder="填写截图上的金额"></label><button class="solid full" type="submit">查看校准试算</button></form><div id="balanceResult" class="empty" role="status">选择账户并填写余额，查看校准前后的差额。</div><p class="muted">此处以最新示例余额试算，不保存、不重算历史。历史补录和在途转账将在正式账本中接入。</p></article>
+    </div>
+    <article class="panel" id="assetHistory"><div class="panel-head"><div><h2>完整盘点历史</h2><p>每个日期都包含全部示例账户；日常部分更新将在正式版本中单独标记。</p></div></div><div class="table-scroll"><table><thead><tr><th>盘点日期</th><th>范围</th><th class="right">家庭总资产</th></tr></thead><tbody id="snapshotRows"></tbody></table></div></article>
+    <article class="panel"><div class="panel-head"><div><h2>账户流水</h2><p>收入、支出、转账和余额确认分别展示；换汇两边都保留原币实际金额。</p></div></div><div class="table-scroll"><table><thead><tr><th>日期</th><th>类型</th><th>账户／流向</th><th>原币金额与手续费</th><th>说明</th></tr></thead><tbody id="journalRows"></tbody></table></div></article>
+  </section>
+  <section data-page="settings" aria-label="设置与备份" hidden>
+    <article class="panel"><div class="panel-head"><div><h2>资金账户管理</h2><p>修改名称不会丢失原有记录。新账户必须填写纳入日期及初始余额；币种创建后固定。</p></div></div>
+      <form id="accountForm" class="form-grid">
+        <label class="field full">选择账户<select id="manageAccount"><option value="">新增资金账户</option></select></label>
+        <label class="field">账户名称<input id="manageName" maxlength="80" required placeholder="如：成员一某银行美元账户"></label>
+        <label class="field">归属<select id="manageOwner"><option>成员一</option><option>成员二</option><option>共同</option></select></label>
+        <label class="field">类型<select id="manageType"><option>现金</option><option>股票</option><option>理财</option><option>基金</option><option>加密货币</option><option>贵金属</option><option>其他</option></select></label>
+        <label class="field">币种<select id="manageCurrency" required><option value="CNY">人民币 CNY</option><option value="USD">美元 USD</option><option value="HKD">港币 HKD</option><option value="EUR">欧元 EUR</option><option value="JPY">日元 JPY</option><option value="GBP">英镑 GBP</option><option value="SGD">新加坡元 SGD</option><option value="AUD">澳元 AUD</option><option value="CAD">加元 CAD</option><option value="CHF">瑞士法郎 CHF</option><option value="NZD">新西兰元 NZD</option><option value="KRW">韩元 KRW</option><option value="TWD">新台币 TWD</option><option value="MOP">澳门元 MOP</option><option value="THB">泰铢 THB</option><option value="MYR">马来西亚林吉特 MYR</option><option value="IDR">印尼盾 IDR</option><option value="INR">印度卢比 INR</option><option value="PHP">菲律宾比索 PHP</option><option value="AED">阿联酋迪拉姆 AED</option><option value="ZAR">南非兰特 ZAR</option></select></label>
+        <label class="field" id="manageDateField">纳入日期<input id="manageDate" type="date" required></label>
+        <label class="field" id="manageAmountField">纳入日流水发生前的原币余额<input id="manageAmount" type="number" min="0" step="0.01" required></label>
+        <label class="field full" id="manageFxField">汇率方式<select id="manageFxMode"><option value="auto">自动参考汇率</option><option value="manual">手动参考汇率（历史日期）</option></select></label>
+        <label class="field" id="manageRateField" hidden>每1原币折合人民币<input id="manageRate" type="number" min="0.0000000001" step="0.0000000001"></label>
+        <label class="field" id="manageRateDateField" hidden>汇率日期<input id="manageRateDate" type="date"></label>
+        <label class="field full" id="manageRateSourceField" hidden>汇率来源<input id="manageRateSource" maxlength="100"></label>
+        <button id="saveAccount" class="solid full" type="submit">创建账户并保存初始余额</button>
+      </form><p id="accountStatus" role="status" class="muted">账户创建和名称修改保存到本机。现有持仓中的外币余额也可直接用于收入或转账，不需要再建一份重复账户。</p>
+    </article>
+    <article class="panel"><div class="panel-head"><div><h2>自动汇率</h2><p>每 1 单位外币折合多少人民币。用于资产估值，实际换汇按真实扣款与到账记录。</p></div><button id="fxRefresh" class="outline">立即更新汇率</button></div>
+      <p id="fxStatus" role="status" class="muted">打开本机账本后自动获取，无需另行申请 API 账号。</p>
+      <div id="fxMeta" class="muted"></div>
+      <div class="table-scroll" style="max-height:290px"><table><thead><tr><th>币种</th><th class="right">折合人民币</th></tr></thead><tbody id="fxRows"><tr><td colspan="2" class="empty">尚未获取汇率</td></tr></tbody></table></div>
+      <p class="muted">后台每 6 小时检查更新；周末和假日可能沿用最近发布日。失败时保留旧汇率并提示，缺失币种不按零或 1:1 折算。</p>
+      <p class="muted">资金账户支持人民币和外币收入、转账及盘点；换汇按实际转出和到账金额记录。参考汇率用于估值和收入汇总，保存时固定本次汇率。</p>
+    </article>
+    <div class="two-cols"><article class="panel"><div class="panel-head"><div><h2>家庭与成员</h2><p>全家账目公开，登录身份与收入归属分别记录。</p></div></div><div class="setting-row"><span>家庭成员</span><strong>成员一、成员二</strong></div><div class="setting-row"><span>账目可见范围</span><strong>家庭共享</strong></div><div class="setting-row"><span>记账币种 / 时区</span><strong>人民币 / 上海时间</strong></div><p class="muted">已支持两人独立登录、共用家庭账目；成员显示名称修改后续接入。</p></article>
+    <article class="panel"><div class="panel-head"><div><h2>AI 服务</h2><p>智能识别是可选能力，普通查询和统计不依赖 AI。</p></div><span class="status-tag">待接入</span></div><label class="field">服务方案预览<select id="aiProvider"><option>免费方案（待验证）</option><option>OpenAI API</option><option>其他兼容服务</option></select></label><p id="providerNote" class="muted">目前不会发起任何 AI 请求；免费服务的模型效果与数据条款待核对。</p><label class="field">API 密钥<input disabled placeholder="正式版本在服务端配置，请勿在原型中填写密钥"></label></article></div>
+    <article class="panel"><div class="panel-head"><div><h2>备份与恢复</h2><p>先预览文件导出和检查流程；正式版本会加入自动备份及恢复验证。</p></div></div><div class="backup-box"><div><strong>导出演示数据包</strong><p>包含虚拟账户、收入、盘点和本次确认的演示草稿。</p></div><button id="backupExport" class="solid">导出示例 JSON</button></div><label class="upload">选择刚导出的示例文件进行检查<input id="backupImport" type="file" accept=".json,application/json"><small>只检查文件，不会替换或恢复账本。</small></label><p id="backupStatus" role="status" class="muted">尚未选择文件。此原型不具备正式数据恢复能力。</p></article>
+  </section>
+  <footer id="appFooter">家有数 · 五页面操作原型 · 演示数据截至 2026.10.15 · 请勿作为正式记账工具</footer>
+</main>
+</body></html>

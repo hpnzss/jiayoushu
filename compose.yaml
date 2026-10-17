@@ -1,0 +1,24 @@
+services:
+  app:
+    build: .
+    image: jiayoushu:local
+    restart: unless-stopped
+    init: true
+    environment:
+      APP_ORIGINS: ${APP_ORIGINS:?请先复制.env.example为.env并填写访问地址}
+    ports:
+      - "${NAS_BIND_IP:-192.168.1.100}:${APP_PORT:-20001}:4318"
+    volumes:
+      - ./data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

@@ -1,0 +1,21 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),os=require('node:os');
+const {DatabaseSync}=require('node:sqlite'),{openAuth}=require('./auth.cjs');
+const root=fs.mkdtempSync(path.join(os.tmpdir(),'family-auth-v2-')),file=path.join(root,'family.sqlite');let time=Date.now(),auth=openAuth(file,{now:()=>time});
+(async()=>{try{
+ assert(auth.setupRequired());await assert.rejects(()=>auth.setup({admin:{username:'first',password:'x',confirmPassword:'y'}}));assert(auth.setupRequired());
+ const first=await auth.setup({admin:{username:'first',name:'爸爸',password:'1',confirmPassword:'1'}});assert.equal(first.user.role,'admin');assert.equal(auth.listMembers(first.user).length,1);assert(first.recoveryCode);
+ const long='z'.repeat(250);await auth.addMember(first.user,{username:'longpass',password:long,confirmPassword:long});assert((await auth.login({username:'longpass',password:long},'long-test')).token);
+ const member=await auth.addMember(first.user,{username:'second',name:'妈妈',password:'',confirmPassword:''});const second=await auth.login({username:'second',password:''},'local');assert.equal(second.user.role,'member');
+ assert.throws(()=>auth.listMembers(second.user),e=>e.statusCode===403);await assert.rejects(()=>auth.addMember(second.user,{username:'nope',password:'1',confirmPassword:'1'}));assert.throws(()=>auth.removeMember(first.user,first.user.id));
+ const third=await auth.addMember(first.user,{username:'third',name:'孩子',password:'2',confirmPassword:'2'});const thirdSession=await auth.login({username:'third',password:'2'},'local');
+ auth.removeMember(first.user,third.id);assert.equal(auth.session(thirdSession.token),null);assert(auth.profiles().some(p=>p.key===third.member&&!p.active));assert(auth.session(second.token));
+ await auth.resetMember(first.user,{id:member.id,newPassword:'3',confirmPassword:'3'});assert.equal(auth.session(second.token),null);const secondAgain=await auth.login({username:'second',password:'3'},'local');
+ await auth.changePassword(secondAgain.user,{currentPassword:'3',newPassword:'中文',confirmPassword:'中文'},secondAgain.token,'local');assert.equal(auth.session(secondAgain.token),null);assert((await auth.login({username:'second',password:'中文'},'local')).token);
+ await assert.rejects(()=>auth.recover({username:'first',code:'wrong',newPassword:'4',confirmPassword:'4'},'local'));
+ const renewed=await auth.recover({username:'first',code:first.recoveryCode,newPassword:'4',confirmPassword:'4'},'local');assert(renewed.recoveryCode);assert.equal(auth.session(first.token),null);
+ await assert.rejects(()=>auth.recover({username:'first',code:first.recoveryCode,newPassword:'5',confirmPassword:'5'},'local'));
+ const newLogin=await auth.login({username:'first',password:'4'},'local');assert(newLogin.token);
+ const db=new DatabaseSync(file);assert(!JSON.stringify(db.prepare('SELECT * FROM auth_users').all()).includes('中文'));assert(!JSON.stringify(db.prepare('SELECT * FROM auth_recovery').all()).includes(renewed.recoveryCode));db.close();
+ auth.close();auth=openAuth(file,{now:()=>time});assert(auth.session(newLogin.token));for(let i=0;i<5;i++)await assert.rejects(()=>auth.login({username:'missing',password:'1'},'other'));await assert.rejects(()=>auth.login({username:'missing',password:'1'},'other'),e=>e.statusCode===429);time+=16*60*1000;await assert.rejects(()=>auth.login({username:'missing',password:'1'},'other'),/不正确/);time+=12*60*60*1000;assert.equal(auth.session(newLogin.token),null);
+ console.log('账号测试通过：单管理员、任意密码、成员管理与权限、移除留历史、自己改密、恢复码轮换、会话撤销和失败限流。');
+}finally{auth.close();if(path.dirname(root)===os.tmpdir())fs.rmSync(root,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});

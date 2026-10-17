@@ -1,0 +1,22 @@
+const fs=require('node:fs'),os=require('node:os'),path=require('node:path'),assert=require('node:assert/strict');
+const {DatabaseSync}=require('node:sqlite'),{openAuth}=require('./auth.cjs'),{resetPassword}=require('./reset-password.cjs');
+const root=fs.mkdtempSync(path.join(os.tmpdir(),'family-password-reset-')),file=path.join(root,'family.sqlite');
+const auth=openAuth(file);
+(async()=>{try{
+ const first=await auth.setup({admin:{username:'resetone',password:'old-test-one-1234',confirmPassword:'old-test-one-1234'}});
+ await auth.addMember(first.user,{username:'resettwo',password:'old-test-two-1234',confirmPassword:'old-test-two-1234'});
+ const second=await auth.login({username:'resettwo',password:'old-test-two-1234'},'test');
+ const db=new DatabaseSync(file);db.exec('CREATE TABLE preserved_money(amount INTEGER);INSERT INTO preserved_money VALUES(123456);');
+ await assert.rejects(()=>resetPassword(file,'resetone',null,null));
+ await assert.rejects(()=>resetPassword(file,'resetone','new-test-one-1234','different-test-1234'));
+ await assert.rejects(()=>resetPassword(file,'missing','new-test-one-1234','new-test-one-1234'));
+ assert(auth.session(first.token));
+ const result=await resetPassword(file,'resetone','new-test-one-1234','new-test-one-1234');assert.equal(result.username,'resetone');
+ assert.equal(auth.session(first.token),null);assert(auth.session(second.token));
+ await assert.rejects(()=>auth.login({username:'resetone',password:'old-test-one-1234'},'test'));
+ assert((await auth.login({username:'resetone',password:'new-test-one-1234'},'test')).token);
+ assert.equal(db.prepare('SELECT amount FROM preserved_money').get().amount,123456);
+ assert.equal(db.prepare("SELECT count(*) n FROM activity_log WHERE action='auth/reset-via-terminal'").get().n,1);
+ const rows=db.prepare('SELECT * FROM auth_users').all();assert(!JSON.stringify(rows).includes('new-test-one-1234'));db.close();
+ console.log('密码重设检查通过：新密码可登录、旧密码及旧会话失效、另一成员会话保留、账目不变、错误输入不修改。');
+}finally{auth.close();if(path.dirname(root)===os.tmpdir())fs.rmSync(root,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});
