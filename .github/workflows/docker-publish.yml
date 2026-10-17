@@ -1,0 +1,75 @@
+name: Build and publish Docker preview
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-preview-main
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Test household ledger
+        run: |
+          node verify-unified.cjs
+          node verify-http.cjs
+          node verify-periods.cjs
+          node verify-backup.cjs
+          node verify-deployment.cjs
+
+  publish:
+    needs: test
+    if: github.repository == 'hpnzss/jiayoushu' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Build image for Synology DS423+
+        run: docker build --platform linux/amd64 --tag "jiayoushu-ci:$GITHUB_SHA" .
+      - name: Start isolated container for health check
+        run: |
+          docker run -d --name jiayoushu-smoke --read-only --tmpfs /tmp:rw,noexec,nosuid,size=32m --cap-drop ALL --security-opt no-new-privileges --volume jiayoushu-smoke-data:/data --env FAMILY_FX_DISABLE=1 "jiayoushu-ci:$GITHUB_SHA"
+          for attempt in $(seq 1 30); do
+            if docker exec jiayoushu-smoke node healthcheck.cjs; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs jiayoushu-smoke
+          exit 1
+      - name: Show container logs on failure
+        if: failure()
+        run: docker logs jiayoushu-smoke || true
+      - name: Remove temporary test container and data
+        if: always()
+        run: |
+          docker rm -f jiayoushu-smoke || true
+          docker volume rm jiayoushu-smoke-data || true
+      - name: Sign in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Publish tested preview image
+        run: |
+          docker tag "jiayoushu-ci:$GITHUB_SHA" "hpnzss/jiayoushu:sha-$GITHUB_SHA"
+          docker tag "jiayoushu-ci:$GITHUB_SHA" hpnzss/jiayoushu:preview
+          docker push "hpnzss/jiayoushu:sha-$GITHUB_SHA"
+          docker push hpnzss/jiayoushu:preview
