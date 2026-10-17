@@ -38,6 +38,8 @@ jobs:
           node verify-dashboard.cjs
           node verify-history.cjs
           node verify-history-general.cjs
+          node verify-maintenance.cjs
+          node verify-income-charts.cjs
 
   publish:
     needs: test

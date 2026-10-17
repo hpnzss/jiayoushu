@@ -58,22 +58,27 @@ function render() {
   globalThis.ExpenseUI?.render(r);
   globalThis.FamilyWorkflow?.renderReportStatus(r);globalThis.FamilyDashboard?.render();globalThis.FamilyHistory?.renderStatus(r);
 }
+const assetViewport={signature:null,window:null,points:[]};
 function chart(r) {
-  const pts = [...(r.opening ? [r.opening] : []), ...r.points];
+  const allPoints = [...(r.opening ? [r.opening] : []), ...r.points];
+  const signature=r.start+'|'+r.end+'|'+allPoints.length;if(signature!==assetViewport.signature){assetViewport.signature=signature;assetViewport.window=null;}assetViewport.points=allPoints;
+  const pts=assetViewport.window?allPoints.slice(assetViewport.window[0],assetViewport.window[1]+1):allPoints;
+  window.FamilyAssetNavigation?.update();
   if (!pts.length) { $('assetChart').innerHTML = '<div class="empty">此区间及此前没有可用资产记录</div>'; $('chartNote').textContent = ''; return; }
-  const w = 1000, h = 260, left = 68, right = 20, top = 25, bottom = 40;
+  const w = Math.max(280,Math.round($('assetChart').getBoundingClientRect().width||700)), h = w<520?240:280, left = 64, right = 16, top = 20, bottom = 34;
   const vals = pts.map(D.total), low = Math.floor(Math.min(...vals) / 1000000) * 1000000 - 1000000, high = Math.ceil(Math.max(...vals) / 1000000) * 1000000 + 1000000;
   const firstTime = Date.parse(pts[0].date), lastTime = Date.parse(pts.at(-1).date);
   const x = i => firstTime === lastTime ? (w + left) / 2 : left + (Date.parse(pts[i].date) - firstTime) / (lastTime - firstTime) * (w-left-right);
   const y = v => top + (high - v) / (high-low) * (h-top-bottom);
-  let content = '<rect width="1000" height="260" fill="white"/>';
+  let content = `<rect width="${w}" height="${h}" fill="transparent"/>`;
   for(let i=0;i<4;i++) { const v = low + (high-low)*i/3, yy = y(v); content += `<line x1="${left}" y1="${yy}" x2="${w-right}" y2="${yy}" stroke="#e8ede3"/><text x="${left-12}" y="${yy+4}" text-anchor="end" fill="#718078" font-size="11">${(v/1000000).toFixed(1)}万</text>`; }
-  for(let i=1;i<pts.length;i++) content += `<line x1="${x(i-1)}" y1="${y(vals[i-1])}" x2="${x(i)}" y2="${y(vals[i])}" stroke="#24634e" stroke-width="3" ${i === 1 && r.opening ? 'stroke-dasharray="6 5"' : ''}/>`;
+  for(let i=1;i<pts.length;i++) content += `<line x1="${x(i-1)}" y1="${y(vals[i-1])}" x2="${x(i)}" y2="${y(vals[i])}" stroke="var(--accent,#24634e)" stroke-width="2" ${i === 1 && r.opening ? 'stroke-dasharray="6 5"' : ''}/>`;
   let lastLabelX=-Infinity;
-  pts.forEach((p,i) => { content += `<circle cx="${x(i)}" cy="${y(vals[i])}" r="5" fill="${i===0 && r.opening ? '#c6a55d' : '#24634e'}" stroke="white" stroke-width="2"><title>${p.date} ${money(vals[i])}${i===0 && r.opening ? '（期初参考）' : p.historical?'（历史家庭总额）':''}</title></circle>`; if((x(i)-lastLabelX>=100&&x(pts.length-1)-x(i)>=80)||i===pts.length-1){lastLabelX=x(i);content += `<text x="${x(i)}" y="${h-12}" text-anchor="${i===0 ? 'start' : i===pts.length-1 ? 'end' : 'middle'}" fill="#718078" font-size="11">${lastTime-firstTime>366*86400000?p.date.slice(0,7):p.date.slice(5)}</text>`;} });
+  pts.forEach((p,i) => { content += `<circle cx="${x(i)}" cy="${y(vals[i])}" r="3" fill="${i===0 && r.opening ? '#c6a55d' : '#24634e'}" stroke="var(--surface,white)" stroke-width="1.5"><title>${p.date} ${money(vals[i])}${i===0 && r.opening ? '（期初参考）' : p.historical?'（历史家庭总额）':''}</title></circle>`; if((x(i)-lastLabelX>=100&&x(pts.length-1)-x(i)>=80)||i===pts.length-1){lastLabelX=x(i);content += `<text x="${x(i)}" y="${h-12}" text-anchor="${i===0 ? 'start' : i===pts.length-1 ? 'end' : 'middle'}" fill="#718078" font-size="11">${lastTime-firstTime>366*86400000?p.date.slice(0,7):p.date.slice(5)}</text>`;} });
   $('assetChart').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="${r.start} 至 ${r.end} 家庭资产趋势，金额单位人民币元"><title>家庭资产趋势 ${r.start} 至 ${r.end}（${D.live?'本机账本':'演示数据'}）</title>${content}</svg>`;
   $('chartNote').textContent = `${r.points.length} 个区间内记录${r.opening ? `，期初参考 ${r.opening.date}` : '，无期初参考'}。${D.live?'历史家庭总额为独立记录点，不代表各银行卡余额；其余点可能沿用旧盘点或由流水推算。连线不代表两点间每日资产。':'连线仅帮助阅读，不代表两点之间的每日实际余额。'}`;
 }
+if(typeof ResizeObserver!=='undefined'){let priorWidth=0;new ResizeObserver(entries=>{const width=Math.round(entries[0].contentRect.width);if(width>0&&width!==priorWidth){priorWidth=width;if(current)chart(current);}}).observe($('assetChart'));}
 function download(name, body, type) {
   const url = URL.createObjectURL(new Blob([body], { type }));
   const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -339,7 +344,7 @@ async function refreshLedger() {
 function refreshMemberControls(){
   const keys=D.members||[];
   for(const id of ['recordMember','manageOwner','holdingOwner']){const el=$(id),chosen=el.value;el.replaceChildren();const allowed=id==='recordMember'?keys.filter(key=>D.memberProfiles.find(p=>p.key===key)?.active!==false):keys;for(const key of [...allowed,...(id==='recordMember'?[]:['共同'])])el.append(new Option(memberName(key)+(D.memberProfiles.find(p=>p.key===key)?.active===false?'（已移除）':''),key));if([...el.options].some(o=>o.value===chosen))el.value=chosen;}
-  const group=$('members');group.replaceChildren();for(const key of ['全家',...keys]){const b=document.createElement('button');b.type='button';b.dataset.member=key;b.textContent=memberName(key);b.classList.toggle('active',key===member);b.onclick=()=>{member=key;group.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));render();};group.append(b);}
+  const group=$('members');group.replaceChildren();if(member!=='全家'&&D.memberProfiles.find(p=>p.key===member)?.active===false)member='全家';for(const key of ['全家',...keys.filter(k=>D.memberProfiles.find(p=>p.key===k)?.active!==false)]){const b=document.createElement('button');b.type='button';b.dataset.member=key;b.textContent=memberName(key);b.classList.toggle('active',key===member);b.onclick=()=>{member=key;group.querySelectorAll('button').forEach(x=>x.classList.toggle('active',x===b));render();};group.append(b);}
   document.querySelector('.family span').textContent=`${(D.memberProfiles||[]).filter(p=>p.active).length} 位成员`;
 }
 function portfolioGuide(){
@@ -358,7 +363,7 @@ function updateRecordFields(){
 }
 $('recordAccount').onchange=$('targetAccount').onchange=$('recordFxMode').onchange=updateRecordFields;
 function refreshAccountControls(){
-  const cash=D.legacyAccounts||D.accounts;
+  const cash=(D.legacyAccounts||D.accounts).filter(a=>!a.archivedAt);
   for(const id of ['recordAccount','targetAccount','balanceAccount']){const chosen=$(id).value;$(id).replaceChildren();for(const a of cash)$(id).append(new Option(`${memberName(a.owner)} · ${a.name}（${a.currency||'CNY'}）`,a.id));if(cash.some(a=>a.id===chosen))$(id).value=chosen;}
   const chosen=$('manageAccount').value;$('manageAccount').replaceChildren(new Option('新增资金账户',''));
   for(const a of D.registeredAccounts||[])$('manageAccount').append(new Option(`${memberName(a.owner)} · ${a.name}（${a.currency}）`,a.id));

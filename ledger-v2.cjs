@@ -24,7 +24,7 @@ function normalize(input,accounts=defaults,quote=null,memberKeys=members){
     if(r?.type==='expense')throw Error('第一版不支持逐笔支出，请在“每月支出”中填写家庭月度总额。');
     if(!r||!['income','expense','transfer','balance'].includes(r.type)||!validDate(r.date))throw Error(`第${i+1}条类型或日期无效。`);
     if(r.date>today)throw Error('实际账本不能记录未来日期，请在实际发生后录入。');
-    const a=byId.get(r.account);if(!a)throw Error('账户不存在，请从当前账户清单选择。');
+    const a=byId.get(r.account);if(!a)throw Error('账户不存在，请从当前账户清单选择。');if(a.archivedAt)throw Error('账户已归档，请先恢复使用。');
     if(r.date<a.startDate)throw Error('记录日期早于账户纳入账本的日期。');
     if(input.version===1&&a.currency!=='CNY')throw Error('外币账户需要第2版导入格式。');
     const row={type:r.type,date:r.date,account:r.account,cents:amount(r.amount,r.type==='balance')};
@@ -45,7 +45,7 @@ function normalize(input,accounts=defaults,quote=null,memberKeys=members){
     }
     if(input.version===2){row.currency=a.currency;row.fx=r.fxPolicy==='latest'&&a.currency!=='CNY'?resolveLatestFx(a.currency,quote):resolveFx(a.currency,r.date,r.fx,quote);if(['income','expense'].includes(r.type))row.cnyCents=convert(row.cents,row.fx.rate);}
     if(r.type==='transfer'){
-      const b=byId.get(r.target);if(!b||b.id===a.id)throw Error('转入账户无效或与转出账户相同。');
+      const b=byId.get(r.target);if(!b||b.id===a.id)throw Error('转入账户无效或与转出账户相同。');if(b.archivedAt)throw Error('转入账户已归档，请先恢复使用。');
       if(r.date<b.startDate)throw Error('转账日期早于转入账户纳入日期。');
       if(input.version===1&&b.currency!=='CNY')throw Error('跨币种转账需要第2版格式。');
       row.target=r.target;row.feeCents=r.fee===undefined?0:amount(r.fee,true);
@@ -88,6 +88,7 @@ function project(rows,accounts=defaults){
 }
 function openLedger(filename,{quote=()=>null,portfolioRecords=()=>[],memberKeys=()=>members,seedDefaults=true}={}){
   const db=new DatabaseSync(filename);let secret=randomBytes(32);db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;');
+  db.exec('CREATE TABLE IF NOT EXISTS record_trash(id TEXT PRIMARY KEY,payload TEXT NOT NULL);');
   db.exec(`CREATE TABLE IF NOT EXISTS batches(id TEXT PRIMARY KEY,digest TEXT NOT NULL,created_at TEXT NOT NULL);CREATE TABLE IF NOT EXISTS records(id INTEGER PRIMARY KEY,batch_id TEXT NOT NULL REFERENCES batches(id),fingerprint TEXT NOT NULL,payload TEXT NOT NULL);CREATE TABLE IF NOT EXISTS ledger_accounts(id TEXT PRIMARY KEY,payload TEXT NOT NULL);CREATE TABLE IF NOT EXISTS batch_inputs(id TEXT PRIMARY KEY,digest TEXT NOT NULL);CREATE TABLE IF NOT EXISTS account_audit(id INTEGER PRIMARY KEY,account_id TEXT NOT NULL,before_json TEXT,after_json TEXT NOT NULL,at TEXT NOT NULL);`);
   const seed=db.prepare('INSERT OR IGNORE INTO ledger_accounts VALUES(?,?)');if(seedDefaults)for(const a of defaults)seed.run(a.id,JSON.stringify(a));
   if(!seedDefaults){
@@ -133,7 +134,8 @@ function openLedger(filename,{quote=()=>null,portfolioRecords=()=>[],memberKeys=
     const ids=new Set(c.accounts.map(a=>a.id));for(const r of p.rows)if(!ids.has(r.account)||(r.target&&!ids.has(r.target)))throw Error('账户已变化，请重新预览。');
     const max=c.rows.reduce((m,r)=>Math.max(m,r.order),0);project([...c.rows,...p.rows.map((r,i)=>({...r,order:max+i+1}))],c.accounts);
     db.prepare('INSERT INTO batches VALUES(?,?,?)').run(p.batchId,p.digest,new Date().toISOString());
-    const insert=db.prepare('INSERT INTO records(batch_id,fingerprint,payload) VALUES(?,?,?)');for(const r of p.rows)insert.run(p.batchId,fingerprint(r),JSON.stringify(r));
+    let nextId=Math.max(db.prepare('SELECT coalesce(max(id),0) n FROM records').get().n,db.prepare("SELECT coalesce(max(CAST(json_extract(j.value,'$.row.id') AS INTEGER)),0) n FROM record_trash t,json_each(t.payload,'$.packs') j WHERE json_extract(j.value,'$.table')='records'").get().n);
+    const insert=db.prepare('INSERT INTO records(id,batch_id,fingerprint,payload) VALUES(?,?,?,?)');for(const r of p.rows)insert.run(++nextId,p.batchId,fingerprint(r),JSON.stringify(r));
     if(p.inputDigest)db.prepare('INSERT INTO batch_inputs VALUES(?,?)').run(p.batchId,p.inputDigest);
     return{alreadyImported:false,count:p.rows.length};
   }
@@ -143,7 +145,7 @@ function openLedger(filename,{quote=()=>null,portfolioRecords=()=>[],memberKeys=
     if(!input||typeof input.name!=='string'||!input.name.trim()||input.name.length>80||![...memberKeys(),'共同'].includes(input.owner)||!ACCOUNT_TYPES.includes(normalizeType(input.type)))throw Error('请填写账户名称、归属和类型。');
     input={...input,type:normalizeType(input.type)};
     const before=input.id?registeredAccounts().find(a=>a.id===input.id):null;
-    if(input.id&&!before)throw Error('此账户属于持仓估值模块，请在持仓入口更新。');
+    if(input.id&&!before)throw Error('此账户属于持仓估值模块，请在持仓入口更新。');if(before?.archivedAt)throw Error('账户已归档，请先恢复使用。');
     if(before&&input.currency&&input.currency!==before.currency)throw Error('已有账户的币种不能修改，请新建不同币种账户。');
     const account=before?{...before,name:input.name.trim(),owner:input.owner,type:input.type}:{id:randomBytes(12).toString('hex'),name:input.name.trim(),owner:input.owner,type:input.type,currency:input.currency,startDate:input.date};
     for(const key of ['institution','typeDetail'])if(input[key]!==undefined){if(typeof input[key]!=='string'||input[key].length>80)throw Error('自定义名称不能超过80字。');account[key]=input[key].trim();}

@@ -1,0 +1,13 @@
+'use strict';
+(()=>{
+ let preference={accounts:{},lastMember:null},loadedFor=null,restoredFor=null;
+ const storageKey=()=> 'family-income-options:'+location.origin+':'+(window.currentFamilyUser?.member||'anonymous');
+ function load(){const key=storageKey();if(key===loadedFor)return;loadedFor=key;try{preference=JSON.parse(localStorage.getItem(key))||{accounts:{}};}catch{preference={accounts:{}};}preference.accounts||={};}
+ function filter(preferLast=false,chooseFrequent=false){if(!D.live)return;load();if(preferLast&&preference.lastMember&&[...$('recordMember').options].some(o=>o.value===preference.lastMember))$('recordMember').value=preference.lastMember;const who=$('recordMember').value,income=$('recordKind').value==='income',previous=$('recordAccount').value;
+  const candidates=(D.legacyAccounts||D.accounts||[]).filter(a=>!a.archivedAt&&(!income||a.owner===who||a.owner==='共同'));const prefs=preference.accounts[who]||{};candidates.sort((a,b)=>(prefs[b.id]?.count||0)-(prefs[a.id]?.count||0)||(prefs[b.id]?.last||0)-(prefs[a.id]?.last||0));$('recordAccount').replaceChildren();for(const a of candidates)$('recordAccount').append(new Option(`${prefs[a.id]?.count?'常用 · ':''}${memberName(a.owner)} · ${a.name}（${a.currency||'CNY'}）`,a.id));if(!preferLast&&!chooseFrequent&&candidates.some(a=>a.id===previous))$('recordAccount').value=previous;
+  const source=$('recordSource'),chosen=source.value,stats=preference.sources?.[who]||{},options=[...source.options];options.sort((a,b)=>a.value==='其他'?1:b.value==='其他'?-1:(stats[b.value]?.count||0)-(stats[a.value]?.count||0)||(stats[b.value]?.last||0)-(stats[a.value]?.last||0));source.replaceChildren(...options);if(!preferLast&&!chooseFrequent&&options.some(o=>o.value===chosen))source.value=chosen;else if(options[0])source.value=options[0].value;FamilyChoices.update();updateRecordFields();
+ }
+ $('recordMember').addEventListener('change',()=>filter(false,true));$('recordKind').addEventListener('change',()=>filter(false,true));
+ document.addEventListener('family-income-saved',e=>{const r=e.detail;if(r?.type!=='income')return;load();preference.lastMember=r.member;const map=preference.accounts[r.member]||={};map[r.account]={count:(map[r.account]?.count||0)+1,last:Date.now()};preference.sources||={};const sources=preference.sources[r.member]||={},key=r.category==='其他'?r.source:r.category;sources[key]={count:(sources[key]?.count||0)+1,last:Date.now()};try{localStorage.setItem(storageKey(),JSON.stringify(preference));}catch{}});
+ document.addEventListener('family-ledger-ready',()=>filter());document.addEventListener('family-session-ready',()=>{filter(restoredFor!==storageKey());restoredFor=storageKey();});if(D.live)filter(true);
+})();

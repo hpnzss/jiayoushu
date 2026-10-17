@@ -50,7 +50,7 @@
       partialHistory:api.history.some(x=>x.kind==='income'&&P.overlaps(x,{start,date:end})&&!P.contains(x,start,end)),
       historical:!!(opening?.historical||closing?.historical||rows.some(x=>x.historical)),
       gap: delta === null||familyExpense.unresolved.length||opening?.historical||closing?.historical||rows.some(x=>x.historical) ? null : delta - familyIncome + familyExpense.knownCents,
-      byMember: (api.members||['成员一','成员二']).map(name => ({ name, cents: rows.filter(x => x.member === name).reduce((n, x) => n + x.cents, 0) })) };
+      byMember: (api.members||['成员一','成员二']).filter(k=>api.memberProfiles?.find(p=>p.key===k)?.active!==false).map(name => ({ name, cents: rows.filter(x => x.member === name).reduce((n, x) => n + x.cents, 0) })) };
   }
   const api = { accounts, snapshots, incomes, total, report, history:[],today: '2026-10-15', live:false,
     reportingIncomes(){return [...incomes,...api.history.filter(r=>r.kind==='income').map(r=>({...r,historical:true,source:r.month?'历史月收入汇总':r.grain==='year'?'历史年收入汇总':'历史期间收入汇总',category:'其他',currency:'CNY'}))].sort((a,b)=>a.date.localeCompare(b.date));},

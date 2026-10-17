@@ -11,6 +11,7 @@ const COLUMNS={
   portfolio_batches:['id','input_digest','payload','created_at'],portfolio_values:['id','batch_id','asset_id','date','payload'],
   expense_months:['member','month','payload'],expense_commands:['id','digest'],expense_audit:['id','before_json','after_json','at'],activity_log:['id','user_id','action','at'],member_profiles:['key','payload'],monthly_periods:['month','payload'],history_records:['key','payload']
 };
+COLUMNS.record_trash=['id','payload'];
 const TABLES=Object.keys(COLUMNS),MAX_BYTES=16*1024*1024;
 const hash=x=>createHash('sha256').update(JSON.stringify(x)).digest('hex');
 const plain=x=>x!==null&&typeof x==='object'&&!Array.isArray(x);
@@ -21,16 +22,17 @@ function id(s){need(typeof s==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(s)&&!['__
 function validMember(s){return typeof s==='string'&&/^(成员[一二]|member-[a-f0-9]{16}|共同)$/.test(s);}
 function fx(x,date,currency,allowLatest=false){const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date());need(plain(x)&&validDate(x.date)&&(x.policy==='latest'?allowLatest&&x.date<=today:x.date<=date));need(x.policy===undefined||x.policy==='latest');text(x.source,100);need(scaled(x.rate,10)>0n);if(currency==='CNY')need(scaled(x.rate,10)===10000000000n);}
 function business(tables){
+  for(const row of tables.record_trash||[]){const p=JSON.parse(row.payload);need(plain(p)&&Array.isArray(p.packs)&&p.packs.length>0&&Array.isArray(p.affected)&&typeof p.label==='string'&&typeof p.deletedBy==='string'&&Number.isFinite(Date.parse(p.deletedAt)));need(['delete-record','delete-history','delete-expense','delete-account'].includes(p.action));for(const item of p.packs){need(plain(item)&&['records','ledger_accounts','history_records','expense_months'].includes(item.table)&&plain(item.row));need(Object.keys(item.row).sort().join(',')===COLUMNS[item.table].slice().sort().join(','));need(typeof item.row.payload==='string'&&plain(JSON.parse(item.row.payload)));}if(p.restoredAt)need(Number.isFinite(Date.parse(p.restoredAt)));}
   for(const row of tables.history_records)require('./history.cjs').validateStored(JSON.parse(row.payload),row.key);
   const P=require('./prototype/history-period.js'),historyGroups=new Map();for(const row of tables.history_records){const r=JSON.parse(row.payload);if(r.kind!=='income')continue;const list=historyGroups.get(r.member)||[];list.push(P.bounds(r));historyGroups.set(r.member,list);}for(const rows of historyGroups.values()){rows.sort((a,b)=>a.start.localeCompare(b.start));for(let i=1;i<rows.length;i++)need(rows[i].start>rows[i-1].end,'历史收入汇总期间重叠。');}
   function hasHistoricalIncome(r){const rows=historyGroups.get(r.member)||[];let low=0,high=rows.length;while(low<high){const mid=(low+high)>>1;if(rows[mid].start<=r.date)low=mid+1;else high=mid;}return low>0&&rows[low-1].end>=r.date;}
   const combinedIncome=[...tables.history_records.map(r=>JSON.parse(r.payload)).filter(r=>r.kind==='income'),...tables.records.map(r=>JSON.parse(r.payload)).filter(r=>r.type==='income')].reduce((sum,r)=>sum+BigInt(r.cnyCents??r.cents),0n);number(Number(combinedIncome));
-  for(const row of tables.member_profiles){const p=JSON.parse(row.payload);need(plain(p)&&p.key===row.key&&validMember(p.key)&&p.key!=='共同'&&typeof p.active==='boolean');text(p.name,40);need(p.name.trim());}
+  for(const row of tables.member_profiles){const p=JSON.parse(row.payload);need(plain(p)&&p.key===row.key&&validMember(p.key)&&p.key!=='共同'&&typeof p.active==='boolean');text(p.name,40);need(p.name.trim());if(p.gender!==undefined)need(['male','female','unspecified'].includes(p.gender));}
   for(const row of tables.monthly_periods){const p=JSON.parse(row.payload);need(plain(p)&&p.month===row.month&&validDate(p.month+'-01')&&typeof p.closedAt==='string'&&Number.isFinite(Date.parse(p.closedAt))&&typeof p.closedBy==='string'&&plain(p.summary)&&typeof p.digest==='string');for(const key of ['incomeCents','expenseCents','assetsCents','openingCents','deltaCents','netCents','unexplainedCents'])if(p.summary[key]!==null)number(p.summary[key],true);}
   const accounts=new Map();
   for(const row of tables.ledger_accounts){const a=JSON.parse(row.payload);need(plain(a)&&a.id===row.id&&validMember(a.owner)&&/^[A-Z]{3}$/.test(a.currency)&&validDate(a.startDate));id(a.id);text(a.name,80);need(a.name.trim()&&ACCOUNT_TYPES.includes(normalizeType(a.type)));accounts.set(a.id,a);}
 
-  for(const row of tables.ledger_accounts){const a=JSON.parse(row.payload);for(const key of ['institution','typeDetail'])if(a[key]!==undefined)text(a[key],80);}
+  for(const row of tables.ledger_accounts){const a=JSON.parse(row.payload);for(const key of ['institution','typeDetail'])if(a[key]!==undefined)text(a[key],80);if(a.archivedAt!==undefined)need(validDate(a.archivedAt)&&a.archivedAt>=a.startDate);}
   const assets=new Map(),portRows=new Map();
   for(const row of tables.portfolio_values){const r=JSON.parse(row.payload),a=r?.asset;need(plain(r)&&plain(a)&&a.id===row.asset_id&&r.date===row.date&&validDate(r.date));id(a.id);need(!accounts.has(a.id)&&['cash','stock','rsu'].includes(a.kind)&&validMember(a.owner)&&['other','purchase','rsu','espp'].includes(a.origin)&&/^[A-Z]{3}$/.test(a.currency));text(a.name,80);need(a.name.trim());
     need(!assets.has(a.id)||hash(assets.get(a.id))===hash(a),'同一持仓资料不一致。');assets.set(a.id,a);number(r.nativeCents);number(r.cnyCents);fx(r.fx,r.date,a.currency);need(convert(r.nativeCents,r.fx.rate)===r.cnyCents,'持仓原币与人民币估值不一致。');
@@ -57,24 +59,24 @@ function business(tables){
 }
 function openBackups(filename,{directory=path.join(path.dirname(filename),'backups'),now=()=>Date.now()}={}){
   const db=new DatabaseSync(filename);db.exec('PRAGMA foreign_keys=ON; CREATE TABLE IF NOT EXISTS member_profiles(key TEXT PRIMARY KEY,payload TEXT NOT NULL);CREATE TABLE IF NOT EXISTS monthly_periods(month TEXT PRIMARY KEY,payload TEXT NOT NULL);');
-  require('./history.cjs').ensureSchema(db);
+  require('./history.cjs').ensureSchema(db);db.exec('CREATE TABLE IF NOT EXISTS record_trash(id TEXT PRIMARY KEY,payload TEXT NOT NULL);');
   const schema=Object.fromEntries(TABLES.map(name=>{const row=db.prepare('SELECT sql FROM sqlite_master WHERE type=\'table\' AND name=?').get(name);need(row,'账本结构不完整，无法备份。');return[name,row.sql];}));
   const previews=new Map();let lastError=null;
   function tables(){return Object.fromEntries(TABLES.map(name=>[name,db.prepare(`SELECT * FROM ${name} ORDER BY ${name==='ledger_accounts'?'rowid':COLUMNS[name][0]}`).all()]));}
   function snapshot(){db.exec('BEGIN');try{const data=tables();db.exec('COMMIT');return data;}catch(e){db.exec('ROLLBACK');throw e;}}
-  function exportBackup(){const body={format:'family-assets-backup',version:4,createdAt:new Date(now()).toISOString(),tables:snapshot()};return{...body,checksum:hash(body)};}
+  function exportBackup(){const body={format:'family-assets-backup',version:5,createdAt:new Date(now()).toISOString(),tables:snapshot()};return{...body,checksum:hash(body)};}
   const counts=t=>({accounts:t.ledger_accounts.length,records:t.records.length,holdings:t.portfolio_values.length,months:t.expense_months.length,history:t.history_records.length});
   function check(input){
-    need(plain(input)&&input.format==='family-assets-backup'&&[1,2,3,4].includes(input.version),'请选择新版“完整账本备份”。旧版数据导出和演示文件不能直接恢复。');
+    need(plain(input)&&input.format==='family-assets-backup'&&[1,2,3,4,5].includes(input.version),'请选择新版“完整账本备份”。旧版数据导出和演示文件不能直接恢复。');
     need(typeof input.createdAt==='string'&&Number.isFinite(Date.parse(input.createdAt))&&plain(input.tables));
     need(Object.keys(input).sort().join(',')===['format','version','createdAt','tables','checksum'].sort().join(','));
-    const expected=input.version===1?TABLES.filter(n=>!['member_profiles','monthly_periods','history_records'].includes(n)):input.version===2?TABLES.filter(n=>n!=='history_records'):TABLES;
+    const expected=TABLES.filter(n=>!(input.version<5&&n==='record_trash')&&!(input.version===1&&['member_profiles','monthly_periods','history_records'].includes(n))&&!(input.version===2&&n==='history_records'));
     need(Object.keys(input.tables).sort().join(',')===expected.slice().sort().join(','),'备份数据表不完整或包含不允许恢复的内容。');
     const body={format:input.format,version:input.version,createdAt:input.createdAt,tables:input.tables};need(input.checksum===hash(body),'文件完整性校验失败，请重新选择备份。');
     need(Buffer.byteLength(JSON.stringify(input))<=MAX_BYTES,'当前备份文件最多支持16MB。');
     if(input.version===1){input.tables.member_profiles=[];input.tables.monthly_periods=[];}
-    if(input.version<3)input.tables.history_records=[];if(input.version<4){input.version=4;input.checksum=hash({format:input.format,version:4,createdAt:input.createdAt,tables:input.tables});}
-    for(const name of TABLES){const rows=input.tables[name],columns=COLUMNS[name];need(Array.isArray(rows)&&rows.length<=100000);for(const row of rows){need(plain(row)&&Object.keys(row).sort().join(',')===columns.slice().sort().join(','));for(const key of columns){const v=row[key];if(key==='id'&&name!=='batches'&&name!=='ledger_accounts'&&name!=='batch_inputs'&&name!=='portfolio_batches'&&name!=='expense_commands'){number(v);need(v>0);}else if(key==='before_json'&&v===null)continue;else text(v,524288);}}}
+    if(input.version<3)input.tables.history_records=[];if(input.version<5){input.tables.record_trash=[];input.version=5;input.checksum=hash({format:input.format,version:5,createdAt:input.createdAt,tables:input.tables});}
+    for(const name of TABLES){const rows=input.tables[name],columns=COLUMNS[name];need(Array.isArray(rows)&&rows.length<=100000);for(const row of rows){need(plain(row)&&Object.keys(row).sort().join(',')===columns.slice().sort().join(','));for(const key of columns){const v=row[key];if(key==='id'&&name!=='batches'&&name!=='ledger_accounts'&&name!=='batch_inputs'&&name!=='portfolio_batches'&&name!=='expense_commands'&&name!=='record_trash'){number(v);need(v>0);}else if(key==='before_json'&&v===null)continue;else text(v,524288);}}}
     business(input.tables);
     const stagePath=path.join(path.dirname(filename),'.restore-check-'+randomBytes(12).toString('hex')+'.sqlite');
     let stage,ledger,portfolio,expenses;
@@ -109,7 +111,7 @@ function openBackups(filename,{directory=path.join(path.dirname(filename),'backu
     db.exec('BEGIN IMMEDIATE');let safetyBackup;
     try{
       need(hash(tables())===p.currentDigest,'预览后账本已变化，请重新检查文件，避免覆盖家人的新记录。');
-      const body={format:'family-assets-backup',version:4,createdAt:new Date(now()).toISOString(),tables:tables()};
+      const body={format:'family-assets-backup',version:5,createdAt:new Date(now()).toISOString(),tables:tables()};
       safetyBackup=saveFile('before-restore',{...body,checksum:hash(body)});
       const currentProfiles=db.prepare('SELECT * FROM member_profiles').all();
       for(const name of TABLES.slice().reverse())db.exec(`DELETE FROM ${name}`);insert(db,p.input.tables);
@@ -119,13 +121,13 @@ function openBackups(filename,{directory=path.join(path.dirname(filename),'backu
     p.done=true;p.safetyBackup=safetyBackup;p.input=null;return{restored:true,safetyBackup};
   }
   function status(){
-    let names=[];try{names=fs.readdirSync(directory).filter(n=>/^(daily|before-restore)-.*\.json$/.test(n)).sort();}catch(e){if(e.code!=='ENOENT')lastError='无法读取备份目录，请检查目录权限。';}
+    let names=[];try{names=fs.readdirSync(directory).filter(n=>/^(daily|before-restore|before-change)-.*\.json$/.test(n)).sort();}catch(e){if(e.code!=='ENOENT')lastError='无法读取备份目录，请检查目录权限。';}
     return{count:names.length,lastAutomatic:names.filter(n=>n.startsWith('daily-')).at(-1)||null,lastSafetyBackup:names.filter(n=>n.startsWith('before-restore-')).at(-1)||null,lastError};
   }
   function automatic(){
     try{const day=new Date(now()).toISOString().slice(0,10);if(status().lastAutomatic?.startsWith('daily-'+day))return;saveFile('daily');}
     catch{lastError='自动备份失败，请检查数据目录权限和磁盘空间。';}
   }
-  return{exportBackup,preview,restore,status,automatic,close:()=>db.close()};
+  return{exportBackup,preview,restore,status,automatic,safety:()=>saveFile('before-change'),close:()=>db.close()};
 }
-module.exports={openBackups,MAX_BYTES};
+module.exports={openBackups,MAX_BYTES,COLUMNS,business};

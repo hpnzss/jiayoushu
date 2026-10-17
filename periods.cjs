@@ -9,7 +9,7 @@ function openPeriods(filename,{state,today=()=>new Intl.DateTimeFormat('sv-SE',{
  function review(month){
   if(!validDate(month+'-01')||month>today().slice(0,7))throw Error('请选择有效月份。');
   const end=monthEnd(month),start=month+'-01',s=state(),saved=list().find(p=>p.month===month)||null;
-  const accounts=s.accounts.filter(a=>(a.startDate||'2000-01-01')<=end);
+  const accounts=s.accounts.filter(a=>(a.startDate||'2000-01-01')<=end&&(!a.archivedAt||a.archivedAt>end));
   const checks=accounts.map(a=>({id:a.id,name:a.name,kind:'余额',done:s.records.some(r=>r.type==='balance'&&r.account===a.id&&r.date===end)}));
   const expense=s.expenseSummaries.find(r=>r.scope==='household'&&r.month===month),expenseDone=!!expense&&expense.through===end;
   const baseline=s.snapshots.filter(p=>p.date<start).at(-1),closing=s.snapshots.filter(p=>p.date<=end).at(-1);

@@ -2,7 +2,7 @@
 
 供家庭使用的收支与资产管理网页，使用手机或电脑浏览器访问，可部署到群晖 Docker。
 
-当前版本：**0.7.0-preview**（开发预览）。镜像仓库：[hpnzss/jiayoushu](https://hub.docker.com/r/hpnzss/jiayoushu)。`preview` 跟随通过发布检查的 main 分支；每次构建还提供 commit 标签，本版提供 `0.7.0-preview` 标签。发布状态见 [GitHub Actions](https://github.com/hpnzss/jiayoushu/actions)。
+当前版本：**0.8.0-preview**（开发预览）。镜像仓库：[hpnzss/jiayoushu](https://hub.docker.com/r/hpnzss/jiayoushu)。`preview` 跟随通过发布检查的 main 分支；每次构建还提供 commit 标签，本版提供 `0.8.0-preview` 标签。发布状态见 [GitHub Actions](https://github.com/hpnzss/jiayoushu/actions)。
 
 ## 功能
 
@@ -16,6 +16,12 @@
 - 收入按成员和家庭合计展示逐月、逐年曲线；资产随记录点变化，并说明每个指标的意义。
 - CSV或Excel表格粘贴导入历史收入及家庭总资产，支持检查预览、去重与更正，不改变当前银行卡余额。
 - SQLite 本地保存、完整账本备份、每日自动备份与经过校验的恢复。
+
+## 修改、删除与图表
+
+管理员在月度填报的“已录记录 · 修改与删除”编辑或删除记录，在设置的回收站恢复。删除收入或转账后由剩余记录重算，后续实际盘点仍有效；月支出和历史汇总不加减银行卡余额。已有正式关账须先重开。账户归档须先核对余额为0；删除账户会同时移走关联流水，先显示影响并自动备份。恢复不覆盖现有记录。
+
+收入到账账户按本人及共同账户筛选，当前浏览器按登录身份记住常用账户、来源。成员可标记男、女或不指定用于配色，家庭合计为粗线。月/年收入和资产图支持缩放、滑块和拖动，圆点可查看金额；可切换时间快捷范围及不同年份逐月比较。移除成员后不再显示其个人图表，但历史收入保留在家庭合计中。
 
 ## 历史导入
 
@@ -31,7 +37,7 @@
 
 ## 部署
 
-详见 [安装、升级与备份](INSTALL.md)。示例 compose 默认使用 Docker Hub 的 `preview` 镜像；需要固定本版可改为 `hpnzss/jiayoushu:0.7.0-preview`。
+详见 [安装、升级与备份](INSTALL.md)。示例 compose 默认使用 Docker Hub 的 `preview` 镜像；需要固定本版可改为 `hpnzss/jiayoushu:0.8.0-preview`。
 
 需要从源码运行时，安装 Node.js 24 后运行：
 
