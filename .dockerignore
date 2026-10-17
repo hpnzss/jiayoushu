@@ -1,0 +1,10 @@
+**
+!*.cjs
+!prototype/
+!prototype/*.html
+!prototype/*.css
+!prototype/*.js
+verify-*.cjs
+prototype/verify*.cjs
+preview.cjs
+prototype/serve.cjs
