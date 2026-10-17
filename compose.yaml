@@ -1,7 +1,6 @@
 services:
   app:
-    build: .
-    image: jiayoushu:local
+    image: hpnzss/jiayoushu:preview
     restart: unless-stopped
     init: true
     environment:

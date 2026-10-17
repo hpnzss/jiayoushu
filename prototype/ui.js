@@ -19,7 +19,7 @@ function preset() {
     $('end').value = p.value + '-' + String(last).padStart(2, '0');
   } else if (mode === 'year') {
     const y = Number(p.value);
-    if (y < 2020 || y > 2100) return;
+    if (y < 2000 || y > 2100) return;
     $('start').value = `${y}-01-01`; $('end').value = `${y}-12-31`;
   }
   if ($('start').value <= D.today && $('end').value > D.today) $('end').value = D.today;
@@ -32,7 +32,7 @@ function render() {
   const r = current;
   $('range').textContent = `${r.start} — ${r.end}${r.end === D.today ? (D.live ? ' · 截至今日' : ' · 截至演示数据日') : ''}`;
   $('assetValue').textContent = r.closing ? money(D.total(r.closing)) : '资料不足';
-  $('assetDate').textContent = r.closing ? `${r.closing.kind==='estimated'?'部分盘点或流水推算':'完整盘点'}：${r.closing.date}${r.closing.date < r.end ? ' · 沿用历史记录' : ''}` : '资料不足：请先确认每个账户的初始余额';
+  $('assetDate').textContent = r.closing ? `${r.closing.historical?'历史家庭总额':r.closing.kind==='estimated'?'部分盘点或流水推算':'完整盘点'}：${r.closing.date}${r.closing.date < r.end ? ' · 沿用历史记录' : ''}` : '资料不足：请先确认每个账户的初始余额';
   $('deltaValue').textContent = signed(r.delta);
   $('openingDate').textContent = r.opening ? `期初参考：${r.opening.date}` : '缺少开始日前的资产记录';
   $('incomeTitle').textContent = `期间${member === '全家' ? '家庭' : memberName(member)}收入`;
@@ -54,9 +54,9 @@ function render() {
   $('distribution').innerHTML = total>0 && balances.every(b=>b.cents>=0)?'<div class="stack">' + balances.map((b,i) => `<span style="width:${b.cents / total * 100}%;background:${colors[i%colors.length]}" title="${escapeHTML(b.name)} ${money(b.cents)}"></span>`).join('') + '</div>':'';
   $('accountRows').innerHTML = balances.map((b,i) => `<div class="account-row"><div><span class="dot" style="background:${colors[i%colors.length]}"></span>${escapeHTML(b.name)}<small>${escapeHTML(memberName(b.owner))} · ${b.confirmedDate?'最近确认 '+b.confirmedDate:'初始余额待确认'}${b.currency?' · '+escapeHTML(b.currency):''}</small>${b.currency&&b.currency!=='CNY'?`<small>${nativeMoney(b.nativeCents,b.currency)} · 汇率日 ${b.fx?.date||'未知'}</small>`:''}</div><div>${money(b.cents)}<small>${total>0?(b.cents/total*100).toFixed(1)+'%':'尚无完整占比'}</small></div></div>`).join('');
   $('rowCount').textContent = `${member} · ${r.rows.length} 笔`;
-  $('incomeRows').innerHTML = r.rows.length ? r.rows.slice().reverse().map(x => `<tr><td>${x.date}</td><td>${escapeHTML(memberName(x.member))}</td><td>${escapeHTML(x.source)}</td><td>${escapeHTML(D.accounts.find(a => a.id === x.account).name)}</td><td class="right">${money(x.cents)}${x.nativeCents!==undefined?`<small class="muted" style="display:block">${nativeMoney(x.nativeCents,x.currency)} · 汇率日 ${x.fx.date}</small>`:''}</td></tr>`).join('') : '<tr><td colspan="5" class="empty">所选区间没有收入记录</td></tr>';
+  $('incomeRows').innerHTML = r.rows.length ? r.rows.slice().reverse().map(x => `<tr><td>${x.historical?FamilyHistoryPeriod.label(x):x.date}</td><td>${escapeHTML(memberName(x.member))}</td><td>${escapeHTML(x.source)}</td><td>${escapeHTML((x.historical?'历史汇总（不关联账户）':D.accounts.find(a => a.id === x.account)?.name||'未知账户'))}</td><td class="right">${money(x.cents)}${x.nativeCents!==undefined?`<small class="muted" style="display:block">${nativeMoney(x.nativeCents,x.currency)} · 汇率日 ${x.fx.date}</small>`:''}</td></tr>`).join('') : '<tr><td colspan="5" class="empty">所选区间没有收入记录</td></tr>';
   globalThis.ExpenseUI?.render(r);
-  globalThis.FamilyWorkflow?.renderReportStatus(r);
+  globalThis.FamilyWorkflow?.renderReportStatus(r);globalThis.FamilyDashboard?.render();globalThis.FamilyHistory?.renderStatus(r);
 }
 function chart(r) {
   const pts = [...(r.opening ? [r.opening] : []), ...r.points];
@@ -69,10 +69,10 @@ function chart(r) {
   let content = '<rect width="1000" height="260" fill="white"/>';
   for(let i=0;i<4;i++) { const v = low + (high-low)*i/3, yy = y(v); content += `<line x1="${left}" y1="${yy}" x2="${w-right}" y2="${yy}" stroke="#e8ede3"/><text x="${left-12}" y="${yy+4}" text-anchor="end" fill="#718078" font-size="11">${(v/1000000).toFixed(1)}万</text>`; }
   for(let i=1;i<pts.length;i++) content += `<line x1="${x(i-1)}" y1="${y(vals[i-1])}" x2="${x(i)}" y2="${y(vals[i])}" stroke="#24634e" stroke-width="3" ${i === 1 && r.opening ? 'stroke-dasharray="6 5"' : ''}/>`;
-  const step = Math.max(1, Math.ceil(pts.length / 7));
-  pts.forEach((p,i) => { content += `<circle cx="${x(i)}" cy="${y(vals[i])}" r="5" fill="${i===0 && r.opening ? '#c6a55d' : '#24634e'}" stroke="white" stroke-width="2"><title>${p.date} ${money(vals[i])}${i===0 && r.opening ? '（期初参考）' : ''}</title></circle>`; if(i % step === 0 || i === pts.length-1) content += `<text x="${x(i)}" y="${h-12}" text-anchor="${i===0 ? 'start' : i===pts.length-1 ? 'end' : 'middle'}" fill="#718078" font-size="11">${p.date.slice(5)}</text>`; });
+  let lastLabelX=-Infinity;
+  pts.forEach((p,i) => { content += `<circle cx="${x(i)}" cy="${y(vals[i])}" r="5" fill="${i===0 && r.opening ? '#c6a55d' : '#24634e'}" stroke="white" stroke-width="2"><title>${p.date} ${money(vals[i])}${i===0 && r.opening ? '（期初参考）' : p.historical?'（历史家庭总额）':''}</title></circle>`; if((x(i)-lastLabelX>=100&&x(pts.length-1)-x(i)>=80)||i===pts.length-1){lastLabelX=x(i);content += `<text x="${x(i)}" y="${h-12}" text-anchor="${i===0 ? 'start' : i===pts.length-1 ? 'end' : 'middle'}" fill="#718078" font-size="11">${lastTime-firstTime>366*86400000?p.date.slice(0,7):p.date.slice(5)}</text>`;} });
   $('assetChart').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="${r.start} 至 ${r.end} 家庭资产趋势，金额单位人民币元"><title>家庭资产趋势 ${r.start} 至 ${r.end}（${D.live?'本机账本':'演示数据'}）</title>${content}</svg>`;
-  $('chartNote').textContent = `${r.points.length} 个区间内记录${r.opening ? `，期初参考 ${r.opening.date}` : '，无期初参考'}。${D.live?'金额可能沿用旧盘点或由流水推算，非每日实际余额；缺少初始余额时不展示总资产。':'连线仅帮助阅读，不代表两点之间的每日实际余额。'}`;
+  $('chartNote').textContent = `${r.points.length} 个区间内记录${r.opening ? `，期初参考 ${r.opening.date}` : '，无期初参考'}。${D.live?'历史家庭总额为独立记录点，不代表各银行卡余额；其余点可能沿用旧盘点或由流水推算。连线不代表两点间每日资产。':'连线仅帮助阅读，不代表两点之间的每日实际余额。'}`;
 }
 function download(name, body, type) {
   const url = URL.createObjectURL(new Blob([body], { type }));
@@ -108,7 +108,7 @@ function incomeTrend(r) {
 }
 $('export').onclick = () => {
   const csv = v => {const s=String(v);return '"'+(/^[=+\-@\t\r]/.test(s)?"'":'')+s.replaceAll('"','""')+'"';};
-  const lines = [[D.live?'本机账本 · 收入明细':'虚拟数据 · 收入明细', current.start, current.end, member], ['日期','归属成员','来源','到账账户','折合人民币','原币','原币金额','参考汇率','汇率日期'], ...current.rows.map(x => [x.date,x.member,x.source,D.accounts.find(a => a.id === x.account).name,(x.cents/100).toFixed(2),x.currency||'CNY',((x.nativeCents??x.cents)/100).toFixed(2),x.fx?.rate||'1',x.fx?.date||x.date])];
+  const lines = [[D.live?'本机账本 · 收入明细':'虚拟数据 · 收入明细', current.start, current.end, member], ['日期','归属成员','来源','到账账户','折合人民币','原币','原币金额','参考汇率','汇率日期'], ...current.rows.map(x => [x.date,x.member,x.source,(x.historical?'历史汇总（不关联账户）':D.accounts.find(a => a.id === x.account)?.name||'未知账户'),(x.cents/100).toFixed(2),x.currency||'CNY',((x.nativeCents??x.cents)/100).toFixed(2),x.fx?.rate||'1',x.fx?.date||x.date])];
   download(`收入报告_${current.start}_${current.end}.csv`, '\uFEFF' + lines.map(row => row.map(csv).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
 };
 $('chartExport').onclick = () => {
@@ -331,7 +331,7 @@ async function refreshLedger() {
   const state=await api('/api/state');D.load(state);
   refreshMemberControls();
   render();
-  $('snapshotRows').innerHTML=D.allSnapshots.slice().reverse().map(s=>`<tr><td>${s.date}</td><td>${s.complete?(s.kind==='confirmed'?'全部账户同日确认':'沿用盘点及流水推算'):'部分账户初始余额待确认'}</td><td class="right">${s.complete?money(D.total(s)):'资料不足'}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">尚无记录，请先盘点初始余额。</td></tr>';
+  $('snapshotRows').innerHTML=[...D.allSnapshots,...D.reportingSnapshots().filter(s=>s.historical)].sort((a,b)=>b.date.localeCompare(a.date)).map(s=>`<tr><td>${s.date}</td><td>${s.complete?(s.historical?'历史家庭总额（无账户明细）':s.kind==='confirmed'?'全部账户同日确认':'沿用盘点及流水推算'):'部分账户初始余额待确认'}</td><td class="right">${s.complete?money(D.total(s)):'资料不足'}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">尚无记录，请先盘点初始余额。</td></tr>';
   renderPortfolio();
   refreshAccountControls();renderJournal();
   document.dispatchEvent(new Event('family-ledger-ready'));
@@ -469,7 +469,7 @@ route();
     document.querySelector('#assets')?.removeAttribute('data-demo');
     $('backupExport').textContent='下载完整账本备份';
     document.querySelector('.backup-box strong').textContent='完整账本备份';
-    document.querySelector('.backup-box p').textContent='包含账户、收入与转账、资产盘点、外币与股票估值、月度支出。';
+    document.querySelector('.backup-box p').textContent='包含账户、收入与转账、资产盘点、外币与股票估值、月度支出及历史汇总。';
     document.querySelector('[data-page="assets"] .panel-head .muted').textContent='当前本机账本';
     document.querySelector('.trend .panel-head p').textContent='记录点可能为实际盘点、沿用旧值或流水推算。下方说明数据范围。';
     document.querySelector('#assetHistory .panel-head h2').textContent='资产状态历史';

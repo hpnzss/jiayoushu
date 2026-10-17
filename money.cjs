@@ -9,4 +9,9 @@ function resolveFx(currency,date,manual,quote){
   if(quote.rateDate>date)throw Error('自动汇率晚于发生日，历史补录需要对应日期的手动参考汇率。');
   return{rate:quote.toCny[currency].toFixed(10),date:quote.rateDate,source:quote.source,fetchedAt:quote.fetchedAt};
 }
-module.exports={scaled,safe,convert,validDate,resolveFx};
+function resolveLatestFx(currency,quote){
+ const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date());
+ if(!quote||!validDate(quote.rateDate)||quote.rateDate>today||typeof quote.source!=='string'||!Number.isFinite(quote.toCny?.[currency])||quote.toCny[currency]<=0)throw Error('暂未取得'+currency+'自动汇率，请更新汇率后重试；本次未保存。');
+ return{rate:quote.toCny[currency].toFixed(10),date:quote.rateDate,source:quote.source,policy:'latest',...(quote.fetchedAt?{fetchedAt:quote.fetchedAt}:{})};
+}
+module.exports={scaled,safe,convert,validDate,resolveFx,resolveLatestFx};

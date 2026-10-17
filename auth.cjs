@@ -56,6 +56,9 @@ function openAuth(filename,{now=()=>Date.now()}={}){
   if(!r||typeof input.code!=='string'||!timingSafeEqual(Buffer.from(hash(input.code.trim().toLowerCase()),'hex'),Buffer.from(r.digest,'hex'))){fail(keys);throw problem('登录名或恢复码不正确。');}
   const salt=randomBytes(16).toString('hex'),next=await limited(()=>passwordHash(input.newPassword,salt));db.exec('BEGIN IMMEDIATE');try{if(!db.prepare("SELECT id FROM auth_users WHERE id=? AND active=1 AND role='admin'").get(u.id)||db.prepare('SELECT digest FROM auth_recovery WHERE user_id=?').get(u.id)?.digest!==r.digest)throw problem('恢复码已失效，请重试。');db.prepare('UPDATE auth_users SET salt=?,password_hash=? WHERE id=?').run(salt,next,u.id);db.prepare('DELETE FROM auth_sessions WHERE user_id=?').run(u.id);clearFailures(username);db.prepare('DELETE FROM auth_failures WHERE key=? OR key=?').run(...keys);const code=recoveryCode(u);recordAction(u,'auth/recover');db.exec('COMMIT');return{recoveryCode:code};}catch(e){db.exec('ROLLBACK');throw e;}
  }
- return{setupRequired,session,setup,login,logout,changePassword,reauthenticate,recordAction,requireAdmin,listMembers,addMember,removeMember,resetMember,renewRecovery,recover,profiles,close:()=>db.close()};
+ db.exec('CREATE TABLE IF NOT EXISTS auth_onboarding(user_id TEXT PRIMARY KEY,payload TEXT NOT NULL)');
+ function onboarding(user){const row=db.prepare('SELECT payload FROM auth_onboarding WHERE user_id=?').get(user.id);return row?JSON.parse(row.payload):{step:1,completed:false};}
+ function saveOnboarding(user,input){if(!Number.isInteger(input.step)||input.step<1||input.step>4||typeof input.completed!=='boolean')throw Error('指引进度无效。');const value={step:input.step,completed:input.completed};db.prepare('INSERT INTO auth_onboarding VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET payload=excluded.payload').run(user.id,JSON.stringify(value));return value;}
+ return{setupRequired,session,setup,login,logout,changePassword,reauthenticate,recordAction,requireAdmin,listMembers,addMember,removeMember,resetMember,renewRecovery,recover,profiles,onboarding,saveOnboarding,close:()=>db.close()};
 }
 module.exports={openAuth};

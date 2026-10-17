@@ -50,7 +50,7 @@
     if(e.legacyDetails)note+=' 旧版逐笔记录未纳入新版月总额，请核对后补填对应月份。';
     $('overviewExpenseNote').textContent=$('expenseReportNote').textContent=note;
     const months=new Map();
-    for(const row of D.incomes.filter(x=>x.date>=r.start&&x.date<=r.end)){const key=row.date.slice(0,7);if(!months.has(key))months.set(key,{income:0,expense:null});months.get(key).income+=row.cents;}
+    for(const row of D.reportingIncomes().filter(x=>x.date>=r.start&&x.date<=r.end&&(!x.historical||(FamilyHistoryPeriod.contains(x,r.start,r.end)&&FamilyHistoryPeriod.fits(x,'month'))))){const key=row.date.slice(0,7);if(!months.has(key))months.set(key,{income:0,expense:null});months.get(key).income+=row.cents;}
     for(const row of e.rows){const key=row.month;if(!months.has(key))months.set(key,{income:0,expense:null});months.get(key).expense=(months.get(key).expense||0)+row.cents;}
     const maximum=Math.max(...[...months.values()].flatMap(x=>[Math.abs(x.income),Math.abs(x.expense||0)]),1);
     $('cashflowBars').innerHTML=[...months].sort(([a],[b])=>a.localeCompare(b)).map(([key,v])=>`<div class="cashflow-month"><strong>${key}</strong><div><span>家庭收入 ${money(v.income)}</span><div class="track"><div class="fill" style="width:${Math.abs(v.income)/maximum*100}%"></div></div><span>家庭支出 ${v.expense===null?'未填写或无法拆分':money(v.expense)}</span>${v.expense===null?'':`<div class="track"><div class="fill" style="width:${Math.abs(v.expense)/maximum*100}%;background:#b17d4b"></div></div>`}</div></div>`).join('')||'<p class="muted">录入收入或月度支出后显示对比。</p>';

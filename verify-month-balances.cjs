@@ -1,0 +1,23 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+const {openLedger}=require('./ledger.cjs'),{saveMonthBalances}=require('./month-balances.cjs'),{resolveLatestFx}=require('./money.cjs');
+const {openAuth}=require('./auth.cjs'),{openExpenses}=require('./expenses.cjs'),{openPortfolio}=require('./portfolio.cjs'),{openBackups}=require('./backup.cjs'),{openPeriods}=require('./periods.cjs');
+const dir=fs.mkdtempSync(path.join(os.tmpdir(),'family-month-auto-')),file=path.join(dir,'test.sqlite');
+let quote={rateDate:'2026-10-16',source:'合成测试汇率',toCny:{CNY:1,USD:7}},locked=false;
+const ledger=openLedger(file,{seedDefaults:false,quote:()=>quote}),auth=openAuth(file),expenses=openExpenses(file),portfolio=openPortfolio(file),periods=openPeriods(file,{ledger,portfolio,expenses}),backups=openBackups(file);
+const options={ledger,periods:{assertWritable:()=>{if(locked)throw Error('已关账');}},fx:{refresh:async()=>{},state:()=>({status:'fresh'})}};
+(async()=>{try{
+ const user=(await auth.setup({admin:{username:'testadmin',password:'1',confirmPassword:'1'}})).user;
+ const usd=ledger.saveAccount({name:'美元测试',owner:user.member,type:'银行存款',institution:'测试银行',currency:'USD',date:'2026-01-01',amount:'10',fx:{rate:'6',date:'2026-01-01',source:'合成历史值'}});
+ const cny=ledger.saveAccount({name:'人民币测试',owner:user.member,type:'现金',currency:'CNY',date:'2026-01-01',amount:'1'});
+ const input={requestId:'auto-month-test-001',date:'2026-01-31',balances:[{account:usd.id,amount:'100'}]};
+ await saveMonthBalances(input,options);let balance=ledger.state().balances.find(a=>a.id===usd.id);assert.equal(balance.cents,70000);assert.equal(balance.fx.policy,'latest');assert.equal(balance.fx.date,'2026-10-16');
+ const count=ledger.state().records.length;quote={...quote,toCny:{CNY:1,USD:8}};assert((await saveMonthBalances(input,options)).alreadyImported);assert.equal(ledger.state().records.length,count);assert.equal(ledger.state().balances.find(a=>a.id===usd.id).cents,70000);
+ await saveMonthBalances({...input,requestId:'auto-month-test-002',balances:[{account:usd.id,amount:'120'}]},options);balance=ledger.state().balances.find(a=>a.id===usd.id);assert.equal(balance.nativeCents,12000);assert.equal(balance.cents,96000);assert.equal(ledger.state().records.length,count+1);
+ const before=ledger.state().records.length;quote=null;await assert.rejects(()=>saveMonthBalances({...input,requestId:'auto-month-test-003',balances:[{account:cny.id,amount:'999'},{account:usd.id,amount:'99'}]},options),/自动汇率/);assert.equal(ledger.state().records.length,before);
+ locked=true;await assert.rejects(()=>saveMonthBalances({...input,requestId:'auto-month-test-004'},options),/关账/);locked=false;
+ quote={rateDate:'2026-10-16',source:'合成测试汇率',toCny:{USD:7}};
+ await assert.rejects(()=>saveMonthBalances({...input,requestId:'auto-month-test-005'},{...options,fx:{...options.fx,refresh:async()=>{locked=true;}}}),/关账/);assert.equal(ledger.state().records.length,before);locked=false;
+ assert.throws(()=>resolveLatestFx('USD',{rateDate:'2099-01-01',source:'测试',toCny:{USD:7}}),/自动汇率/);
+ const exported=backups.exportBackup();assert(backups.preview(exported,user.id).summary.records>=4);
+ console.log('月度自动汇率测试通过：历史余额使用最新参考值、重复请求不重估、更正保留历史、缺少汇率整批不写入、关账锁定及备份兼容。');
+ }finally{backups.close();periods.close();portfolio.close();expenses.close();auth.close();ledger.close();fs.rmSync(dir,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});

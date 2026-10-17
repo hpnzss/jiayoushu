@@ -3,8 +3,8 @@ module.exports={
   "asOf": "2025-06-30",
   "source": "https://www.nfra.gov.cn/chinese/docfile/2025/86c58b1ad810422c8fa6c6d0107f1626.pdf",
   "banks": [
-    "汇丰中国",
-    "汇丰香港",
+    "汇丰银行（中国）",
+    "汇丰银行（香港）",
     "中国银行（香港）",
     "恒生银行（香港）",
     "渣打银行（香港）",

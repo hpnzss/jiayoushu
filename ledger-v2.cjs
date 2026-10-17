@@ -1,6 +1,6 @@
 const {DatabaseSync}=require('node:sqlite');
 const {createHash,createHmac,randomBytes,timingSafeEqual}=require('node:crypto');
-const {scaled,safe,convert,validDate,resolveFx}=require('./money.cjs');
+const {scaled,safe,convert,validDate,resolveFx,resolveLatestFx}=require('./money.cjs');
 const {ACCOUNT_TYPES,INCOME_CATEGORIES,normalizeType}=require('./asset-types.cjs');
 const members=['成员一','成员二'];
 const defaults=require('./prototype/report.js').accounts.map(a=>({...a,currency:'CNY',startDate:'2000-01-01'}));
@@ -28,6 +28,8 @@ function normalize(input,accounts=defaults,quote=null,memberKeys=members){
     if(r.date<a.startDate)throw Error('记录日期早于账户纳入账本的日期。');
     if(input.version===1&&a.currency!=='CNY')throw Error('外币账户需要第2版导入格式。');
     const row={type:r.type,date:r.date,account:r.account,cents:amount(r.amount,r.type==='balance')};
+    if(r.fxPolicy!==undefined&&(r.fxPolicy!=='latest'||r.type!=='balance'))throw Error('最新汇率折算仅用于余额或估值核对。');
+    if(r.correction!==undefined){if(r.type!=='balance'||r.correction!==true)throw Error('仅余额核对可以更正。');row.correction=true;}
     if(r.time!==undefined){if(typeof r.time!=='string'||!/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(r.time))throw Error('发生时间需要HH:mm或HH:mm:ss。');row.time=r.time.length===5?r.time+':00':r.time;}
     if(r.type==='income'){
       if(!memberKeys.includes(r.member))throw Error('请从现有成员中选择收入归属。');
@@ -41,7 +43,7 @@ function normalize(input,accounts=defaults,quote=null,memberKeys=members){
       if(r.affectsBalance!==undefined&&typeof r.affectsBalance!=='boolean'||r.refund!==undefined&&typeof r.refund!=='boolean')throw Error('支出余额标记和退款标记必须为布尔值。');
       Object.assign(row,{member:r.member,category:r.category.trim(),refund:r.refund===true,affectsBalance:r.affectsBalance===true});
     }
-    if(input.version===2){row.currency=a.currency;row.fx=resolveFx(a.currency,r.date,r.fx,quote);if(['income','expense'].includes(r.type))row.cnyCents=convert(row.cents,row.fx.rate);}
+    if(input.version===2){row.currency=a.currency;row.fx=r.fxPolicy==='latest'&&a.currency!=='CNY'?resolveLatestFx(a.currency,quote):resolveFx(a.currency,r.date,r.fx,quote);if(['income','expense'].includes(r.type))row.cnyCents=convert(row.cents,row.fx.rate);}
     if(r.type==='transfer'){
       const b=byId.get(r.target);if(!b||b.id===a.id)throw Error('转入账户无效或与转出账户相同。');
       if(r.date<b.startDate)throw Error('转账日期早于转入账户纳入日期。');
@@ -104,8 +106,8 @@ function openLedger(filename,{quote=()=>null,portfolioRecords=()=>[],memberKeys=
   function warningsFor(rows,existing,prior){
     const warnings=[],seen=new Set(),fingerprints=new Set(existing.map(({order,portfolioValuation,...r})=>fingerprint(r)));
     for(const r of rows){const fp=fingerprint(r);if(seen.has(fp))throw Error('批次内包含完全相同的重复记录。');seen.add(fp);
-      if(fingerprints.has(fp)&&!prior)warnings.push('已有完全相同的记录，请核对是否重复录入。');
-      if(r.type==='balance'&&existing.some(x=>x.type==='balance'&&x.account===r.account&&x.date===r.date&&(!r.time||(x.time||x.projectionTime||'23:59:59')===r.time))&&!prior)throw Error('已有同一天该账户的余额盘点，请核对；新增不同时间的盘点须填写明确发生时间。');
+      if(fingerprints.has(fp)&&!prior&&!r.correction)warnings.push('已有完全相同的记录，请核对是否重复录入。');
+      if(r.type==='balance'&&!r.correction&&existing.some(x=>x.type==='balance'&&x.account===r.account&&x.date===r.date&&(!r.time||(x.time||x.projectionTime||'23:59:59')===r.time))&&!prior)throw Error('已有同一天该账户的余额盘点，请核对；新增不同时间的盘点须填写明确发生时间。');
       for(const fx of [r.fx,r.targetFx])if(fx&&Date.parse(r.date)-Date.parse(fx.date)>5*86400000)warnings.push('部分汇率距发生日超过5天，请核对后确认。');
     }
     if(rows.some(r=>r.type==='balance'))warnings.push('盘点按发生时点校准；历史时间未填时视为日终，发生在盘点之后的流水会继续更新余额。');

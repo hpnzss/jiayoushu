@@ -14,3 +14,5 @@ backups/
 *.log
 *恢复卡*
 node_modules/
+.DS_Store
+Thumbs.db

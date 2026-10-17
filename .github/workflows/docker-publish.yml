@@ -31,6 +31,13 @@ jobs:
           node verify-periods.cjs
           node verify-backup.cjs
           node verify-deployment.cjs
+          node verify-auth.cjs
+          node verify-currency-ledger.cjs
+          node verify-fx.cjs
+          node verify-month-balances.cjs
+          node verify-dashboard.cjs
+          node verify-history.cjs
+          node verify-history-general.cjs
 
   publish:
     needs: test
@@ -72,4 +79,8 @@ jobs:
           docker tag "jiayoushu-ci:$GITHUB_SHA" "hpnzss/jiayoushu:sha-$GITHUB_SHA"
           docker tag "jiayoushu-ci:$GITHUB_SHA" hpnzss/jiayoushu:preview
           docker push "hpnzss/jiayoushu:sha-$GITHUB_SHA"
+          version=$(docker image inspect "jiayoushu-ci:$GITHUB_SHA" --format '{{ index .Config.Labels "org.opencontainers.image.version" }}')
+          case "$version" in ""|*[!a-zA-Z0-9_.-]*) echo "Invalid version label"; exit 1;; esac
+          docker tag "jiayoushu-ci:$GITHUB_SHA" "hpnzss/jiayoushu:$version"
+          docker push "hpnzss/jiayoushu:$version"
           docker push hpnzss/jiayoushu:preview

@@ -1,5 +1,5 @@
 FROM node:24-bookworm-slim
-LABEL org.opencontainers.image.version="0.3.0-preview"
+LABEL org.opencontainers.image.version="0.7.0-preview"
 WORKDIR /app
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=4318 FAMILY_DATA_DIR=/data TZ=Asia/Shanghai
 COPY --chown=node:node *.cjs ./

@@ -1,5 +1,6 @@
 (function (root) {
   'use strict';
+  const P=typeof module!=='undefined'&&module.exports?require('./history-period.js'):root.FamilyHistoryPeriod;
   const accounts = [
     { id: 'a', name: '招商银行 · 工资卡', owner: '成员一', type: '银行卡' },
     { id: 'b', name: '工商银行 · 储蓄卡', owner: '成员二', type: '银行卡' },
@@ -32,11 +33,12 @@
   const total = s => s.amounts.reduce((a, b) => a + b, 0);
   function report(start, end, member = '全家') {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(end) || start > end) throw new Error('请选择有效的起止日期，开始日期不能晚于结束日期。');
-    const rows = incomes.filter(x => x.date >= start && x.date <= end);
+    const rows = api.reportingIncomes().filter(x => x.date >= start && x.date <= end && (!x.historical||P.contains(x,start,end)));
     const selected = rows.filter(x => member === '全家' || x.member === member);
-    const opening = snapshots.filter(x => x.date < start).at(-1) || null;
-    const closing = snapshots.filter(x => x.date <= end).at(-1) || null;
-    const points = snapshots.filter(x => x.date >= start && x.date <= end);
+    const reportingSnapshots=api.reportingSnapshots();
+    const opening = reportingSnapshots.filter(x => x.date < start).at(-1) || null;
+    const closing = reportingSnapshots.filter(x => x.date <= end).at(-1) || null;
+    const points = reportingSnapshots.filter(x => x.date >= start && x.date <= end);
     const income = selected.reduce((n, x) => n + x.cents, 0);
     const familyIncome = rows.reduce((n, x) => n + x.cents, 0);
     const delta = opening && closing ? total(closing) - total(opening) : null;
@@ -45,16 +47,21 @@
     const familyExpense=member==='全家'?expense:E.report(api.records||[],api.expenseSummaries||[],start,end);
     return { start, end, member, rows: selected, income, familyIncome, opening, closing, points, delta,expense,familyExpense,
       // 示例没有逐笔完整记录其他资产影响，故此值仅表示资产变化与收入的差额。
-      gap: delta === null||familyExpense.unresolved.length ? null : delta - familyIncome + familyExpense.knownCents,
+      partialHistory:api.history.some(x=>x.kind==='income'&&P.overlaps(x,{start,date:end})&&!P.contains(x,start,end)),
+      historical:!!(opening?.historical||closing?.historical||rows.some(x=>x.historical)),
+      gap: delta === null||familyExpense.unresolved.length||opening?.historical||closing?.historical||rows.some(x=>x.historical) ? null : delta - familyIncome + familyExpense.knownCents,
       byMember: (api.members||['成员一','成员二']).map(name => ({ name, cents: rows.filter(x => x.member === name).reduce((n, x) => n + x.cents, 0) })) };
   }
-  const api = { accounts, snapshots, incomes, total, report, today: '2026-10-15', live:false,
+  const api = { accounts, snapshots, incomes, total, report, history:[],today: '2026-10-15', live:false,
+    reportingIncomes(){return [...incomes,...api.history.filter(r=>r.kind==='income').map(r=>({...r,historical:true,source:r.month?'历史月收入汇总':r.grain==='year'?'历史年收入汇总':'历史期间收入汇总',category:'其他',currency:'CNY'}))].sort((a,b)=>a.date.localeCompare(b.date));},
+    reportingSnapshots(){const dates=new Map(api.history.filter(r=>r.kind==='assets').map(r=>[r.date,{date:r.date,amounts:[r.cents],complete:true,kind:'historical',historical:true}]));for(const s of snapshots)dates.set(s.date,s);return [...dates.values()].sort((a,b)=>a.date.localeCompare(b.date));},
     load(state) {
       accounts.splice(0,accounts.length,...state.accounts);
       snapshots.splice(0,snapshots.length,...state.snapshots.filter(s=>s.complete));
       incomes.splice(0,incomes.length,...state.incomes);
       api.balances=state.balances; api.allSnapshots=state.snapshots; api.records=state.records; api.adjustments=state.adjustments; api.live=true;
       api.expenseSummaries=state.expenseSummaries||[];
+      api.history=state.history||[];
       api.memberProfiles=state.memberProfiles||[];api.members=[...new Set([...(state.members||['成员一','成员二']),...state.incomes.map(r=>r.member)])];api.periods=state.periods||[];
       api.memberName=key=>key==='共同'?'共同':api.memberProfiles.find(p=>p.key===key)?.name||key;
       api.portfolio=state.portfolio;api.legacyAccounts=state.legacyAccounts||state.accounts;

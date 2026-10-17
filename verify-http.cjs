@@ -6,6 +6,8 @@ async function save(records){const p=await preview(records);const c=await reques
 (async()=>{try{
  await new Promise((resolve,reject)=>{server.stdout.once('data',resolve);server.once('error',reject);server.once('exit',c=>reject(Error('服务退出 '+c)));});
  assert.equal((await request('/api/state')).status,401);assert.equal((await request('/api/backups/export')).status,401);
+ const loginPage=await fetch('http://127.0.0.1:4320/login');assert.equal(loginPage.status,200);assert((await loginPage.text()).includes('href="/modern.css"'));
+ const publicTheme=await fetch('http://127.0.0.1:4320/modern.css',{redirect:'manual'});assert.equal(publicTheme.status,200);assert.match(publicTheme.headers.get('content-type'),/text\/css/);assert((await publicTheme.text()).includes('body.auth-body'));
  const init=await request('/api/auth/setup',{admin:{username:'testone',name:'我',password:'1',confirmPassword:'1'}});assert.equal(init.status,200);assert.equal(init.body.user.role,'admin');assert(init.body.recoveryCode);
  assert.equal((await request('/api/state')).body.accounts.length,0);assert.equal((await request('/api/members')).body.members.length,1);
  const m=await request('/api/members/add',{username:'testtwo',name:'家人',password:'2',confirmPassword:'2'});assert.equal(m.status,200);
@@ -23,7 +25,7 @@ async function save(records){const p=await preview(records);const c=await reques
  assert.equal((await request('/api/import/commit',{kind:stale.kind,prepared:stale.prepared,signature:stale.signature})).status,400);
  assert.equal((await request('/api/expenses/month',{...monthly,requestId:randomUUID(),expectedRevision:1,amount:'30'})).status,400);
  assert.equal((await request('/api/accounts',{name:'回填历史',owner:init.body.user.member,type:'银行卡',currency:'CNY',date:'2026-08-01',amount:'1'})).status,400);
- const backup=(await request('/api/backups/export')).body;assert.equal(backup.version,2);assert.equal(backup.tables.monthly_periods.length,1);assert(!backup.tables.auth_users&&!backup.tables.auth_recovery);
+ const backup=(await request('/api/backups/export')).body;assert.equal(backup.version,4);assert.equal(backup.tables.monthly_periods.length,1);assert(!backup.tables.auth_users&&!backup.tables.auth_recovery);
  const bp=await request('/api/backups/preview',{backup});assert.equal(bp.status,200,JSON.stringify(bp.body));const restored=await request('/api/backups/restore',{token:bp.body.token,password:'1',acknowledge:true});assert.equal(restored.status,200,JSON.stringify(restored.body));assert.equal((await request('/api/state')).body.periods.length,1);
  const adminCookie=cookie;await request('/api/auth/logout',{});assert.equal((await request('/api/auth/login',{username:'testtwo',password:'2'})).status,200);
  assert.equal((await request('/api/members')).status,403);assert.equal((await request('/api/periods/reopen',{month:'2026-09'})).status,403);assert.equal((await request('/api/members/reset-password',{id:init.body.user.id,newPassword:'x',confirmPassword:'x'})).status,403);assert.equal((await request('/api/backups/restore',{token:bp.body.token,password:'2',acknowledge:true})).status,403);

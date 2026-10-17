@@ -21,6 +21,7 @@ const portfolio=openPortfolio(path.join(dir,'family.sqlite'),{memberKeys,quote:(
 ledger=openLedger(path.join(dir,'family.sqlite'),{memberKeys,seedDefaults:false,quote:()=>fx.state().quote,portfolioRecords:()=>portfolio.records()});
 const financialState=()=>({...combineState(ledger.state(),portfolio.records()),expenseSummaries:expenses.list()});
 const periods=require('./periods.cjs').openPeriods(path.join(dir,'family.sqlite'),{state:financialState});
+const history=require('./history.cjs').openHistory(path.join(dir,'family.sqlite'),{profiles:()=>auth.profiles(),state:financialState,periods:()=>periods.list()});
 const backups=openBackups(path.join(dir,'family.sqlite'));
 backups.automatic();setInterval(()=>backups.automatic(),6*60*60*1000).unref();
 if(process.env.FAMILY_FX_DISABLE!=='1'){
@@ -31,9 +32,10 @@ const {port,host}=config;
 const files={'/':['index.html','text/html'],'/index.html':['index.html','text/html'],'/report.js':['report.js','text/javascript'],'/ui.js':['ui.js','text/javascript'],'/expenses-report.js':['expenses-report.js','text/javascript'],'/expenses-ui.js':['expenses-ui.js','text/javascript'],'/style.css':['style.css','text/css']};
 Object.assign(files,{'/login':['login.html','text/html'],'/auth.js':['auth.js','text/javascript'],'/session-ui.js':['session-ui.js','text/javascript']});
 files['/backup-ui.js']=['backup-ui.js','text/javascript'];
-files['/workflow-ui.js']=['workflow-ui.js','text/javascript'];
+files['/workflow-ui.js']=['workflow-ui.js','text/javascript'];files['/monthly-ui.js']=['monthly-ui.js','text/javascript'];
 files['/client-common.js']=['client-common.js','text/javascript'];files['/direct-ui.js']=['direct-ui.js','text/javascript'];
-files['/choices-ui.js']=['choices-ui.js','text/javascript'];
+files['/choices-ui.js']=['choices-ui.js','text/javascript'];files['/modern.css']=['modern.css','text/css'];
+for(const name of ['income-series.js','dashboard-ui.js','modern-ui.js','history-ui.js','history-period.js'])files['/'+name]=[name,'text/javascript'];
 function reply(res,status,value){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));}
 const cookieName=previewMode?'family_preview_session':'family_session';
 function readToken(req){return(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith(cookieName+'='))?.slice(cookieName.length+1);}
@@ -45,31 +47,36 @@ const server=http.createServer(async(req,res)=>{
   if(!origin){reply(res,403,{error:'不允许的访问地址，请检查APP_ORIGINS及反向代理Host设置。'});return;}
   try{
     const token=readToken(req),user=auth.session(token);
-    if(req.method==='GET'&&pathname==='/health'){reply(res,200,{status:'ok',version:previewMode?'0.3.0-preview':'0.3.0'});return;}
+    if(req.method==='GET'&&pathname==='/health'){reply(res,200,{status:'ok',version:'0.7.0-preview'});return;}
     if(req.method==='GET'&&pathname==='/api/auth/status'){reply(res,200,{setupRequired:auth.setupRequired(),signedIn:!!user,user});return;}
     if(previewMode&&req.method==='GET'&&pathname==='/preview'){const r=await auth.login({username:'previewadmin',password:process.env.FAMILY_PREVIEW_PASSWORD},'local-preview',token);setCookie(res,r.token,origin);redirect(res,'/#assets');return;}
     const publicPost=['/api/auth/setup','/api/auth/login','/api/auth/recover'].includes(pathname);
-    if(!user&&!publicPost&&!['/login','/auth.js','/style.css'].includes(pathname)){
+    if(!user&&!publicPost&&!(previewMode&&pathname==='/phone')&&!['/login','/auth.js','/style.css','/modern.css'].includes(pathname)){
       if(pathname.startsWith('/api/'))reply(res,401,{error:'请先登录，或登录已过期。'});else redirect(res,'/login');return;
     }
     if(user&&req.method==='GET'&&pathname==='/login'){redirect(res,'/');return;}
-    if(req.method==='GET'&&pathname==='/api/runtime'){reply(res,200,{deployment:config.deployment,preview:previewMode,version:'0.3.0-preview'});return;}
+    if(req.method==='GET'&&pathname==='/api/runtime'){reply(res,200,{deployment:config.deployment,preview:previewMode,version:'0.7.0-preview'});return;}
     if(req.method==='GET'&&pathname==='/api/catalog'){reply(res,200,require('./banks.cjs'));return;}
-    if(req.method==='GET'&&pathname==='/api/state'){reply(res,200,{...financialState(),members:memberKeys(),memberProfiles:auth.profiles(),periods:periods.list()});return;}
+    if(req.method==='GET'&&pathname==='/api/state'){reply(res,200,{...financialState(),history:history.list(),members:memberKeys(),memberProfiles:auth.profiles(),periods:periods.list()});return;}
     if(req.method==='GET'&&pathname==='/api/members'){reply(res,200,{members:auth.listMembers(user)});return;}
     if(req.method==='GET'&&pathname==='/api/periods/review'){reply(res,200,periods.review(new URL(req.url,'http://localhost').searchParams.get('month')));return;}
+    if(req.method==='GET'&&pathname==='/api/periods/preview'){const q=new URL(req.url,'http://localhost').searchParams,p=require('./period-preview.cjs').previewPeriod(financialState(),q.get('month'),q.get('through'));reply(res,200,{...p,ledgerClosed:periods.list().some(r=>r.month===p.month)});return;}
+    if(req.method==='GET'&&pathname==='/api/onboarding'){reply(res,200,auth.onboarding(user));return;}
     if(req.method==='GET'&&pathname==='/api/backups/export'){res.setHeader('Content-Disposition','attachment; filename="family-assets-backup.json"');reply(res,200,backups.exportBackup());return;}
     if(req.method==='GET'&&pathname==='/api/backups/status'){reply(res,200,backups.status());return;}
     if(req.method==='GET'&&pathname==='/api/fx'){reply(res,200,process.env.FAMILY_FX_DISABLE==='1'?fx.state():await fx.refresh());return;}
-    if(req.method==='POST'&&['/api/records/save','/api/auth/recover','/api/auth/recovery-code','/api/members/add','/api/members/remove','/api/members/reset-password','/api/periods/close','/api/periods/reopen','/api/backups/preview','/api/backups/restore','/api/import/preview','/api/import/commit','/api/fx/refresh','/api/accounts','/api/expenses/month','/api/auth/setup','/api/auth/login','/api/auth/logout','/api/auth/password'].includes(pathname)){
+    if(req.method==='POST'&&['/api/history/preview','/api/history/commit','/api/balances/month','/api/onboarding','/api/records/save','/api/auth/recover','/api/auth/recovery-code','/api/members/add','/api/members/remove','/api/members/reset-password','/api/periods/close','/api/periods/reopen','/api/backups/preview','/api/backups/restore','/api/import/preview','/api/import/commit','/api/fx/refresh','/api/accounts','/api/expenses/month','/api/auth/setup','/api/auth/login','/api/auth/logout','/api/auth/password'].includes(pathname)){
       if((req.headers.origin&&req.headers.origin!==origin)||req.headers['sec-fetch-site']==='cross-site'){reply(res,403,{error:'不允许跨站提交'});return;}
       if(!(req.headers['content-type']||'').startsWith('application/json')){reply(res,415,{error:'仅接受JSON数据'});return;}
       const chunks=[];let size=0;
-      for await(const chunk of req){size+=chunk.length;if(size>(pathname==='/api/backups/preview'?MAX_BYTES+1024:262144)){reply(res,413,{error:'导入内容过大'});return;}chunks.push(chunk);}
+      for await(const chunk of req){size+=chunk.length;if(size>(pathname==='/api/backups/preview'?MAX_BYTES+1024:pathname==='/api/history/preview'?1048576:262144)){reply(res,413,{error:'导入内容过大'});return;}chunks.push(chunk);}
       const input=JSON.parse(Buffer.concat(chunks).toString('utf8'));
       if(!publicPost&&!auth.session(token)){reply(res,401,{error:'登录状态已变化，请重新登录。'});return;}
       if(pathname==='/api/auth/recover'){reply(res,200,await auth.recover(input,req.socket.remoteAddress||''));return;}
       if(publicPost){const result=pathname.endsWith('/setup')?await auth.setup(input):await auth.login(input,req.socket.remoteAddress||'',token);setCookie(res,result.token,origin);reply(res,200,{user:result.user,...(result.recoveryCode?{recoveryCode:result.recoveryCode}:{})});return;}
+      if(pathname==='/api/onboarding'){reply(res,200,auth.saveOnboarding(user,input));return;}
+      if(pathname==='/api/history/preview'){auth.requireAdmin(user);reply(res,200,history.preview(input,user.id));return;}
+      if(pathname==='/api/history/commit'){auth.requireAdmin(user);const result=history.commit(input.token,user.id);auth.recordAction(user,pathname);reply(res,200,result);return;}
       if(pathname==='/api/auth/recovery-code'){reply(res,200,auth.renewRecovery(user));return;}
       if(pathname==='/api/members/add'){reply(res,200,{member:await auth.addMember(user,input,token)});return;}
       if(pathname==='/api/members/remove'){auth.removeMember(user,input.id);reply(res,200,{removed:true});return;}
@@ -82,15 +89,17 @@ const server=http.createServer(async(req,res)=>{
         if(input.acknowledge!==true)throw Error('请先确认覆盖当前账本。');
         await auth.reauthenticate(user,input.password,token,req.socket.remoteAddress||'');
         const result=backups.restore(input.token,user.id);
-        if(!result.alreadyRestored){ledger.invalidateDrafts();portfolio.invalidateDrafts();auth.recordAction(user,'backup/restore');}
+        if(!result.alreadyRestored){ledger.invalidateDrafts();portfolio.invalidateDrafts();history.invalidate();auth.recordAction(user,'backup/restore');}
         reply(res,200,result);return;
       }
       if(pathname==='/api/auth/logout'){auth.logout(token);setCookie(res,null,origin);reply(res,200,{signedOut:true});return;}
       if(pathname==='/api/auth/password'){await auth.changePassword(user,input,token,req.socket.remoteAddress||'');setCookie(res,null,origin);reply(res,200,{passwordChanged:true});return;}
       if(pathname==='/api/expenses/month'){periods.assertWritable([input.month+'-01']);const result=expenses.save(input);auth.recordAction(user,pathname);reply(res,200,result);return;}
       if(pathname==='/api/fx/refresh'){reply(res,200,process.env.FAMILY_FX_DISABLE==='1'?fx.state():await fx.refresh(true));return;}
+      if(pathname==='/api/balances/month'){const result=await require('./month-balances.cjs').saveMonthBalances(input,{ledger,periods,fx,disableFx:process.env.FAMILY_FX_DISABLE==='1'});auth.recordAction(user,pathname);reply(res,200,result);return;}
       if(pathname==='/api/accounts'){if(!input.id||input.updateValue===true)periods.assertWritable([input.date]);const account=ledger.saveAccount(input);auth.recordAction(user,pathname);reply(res,200,{account});return;}
       periods.assertWritable((input.data?.records||input.prepared?.rows||[]).map(r=>r.date));
+      history.assertNoIncomeOverlap(input.data?.records||input.prepared?.rows||[]);
       if(pathname==='/api/records/save'){
         if(!input.data||input.data.format!=='family-assets-import')throw Error('需要有效的收入、转账或余额数据。');
         if(Array.isArray(input.data.records))input.data={...input.data,records:input.data.records.map(r=>r?.type==='income'&&r.category===undefined?{...r,category:require('./asset-types.cjs').incomeCategory(r.source)}:r)};
@@ -101,14 +110,14 @@ const server=http.createServer(async(req,res)=>{
       if(pathname.endsWith('/commit'))auth.recordAction(user,pathname);reply(res,200,result);return;
     }
     if(req.method!=='GET'){reply(res,405,{error:'请求方式不支持'});return;}
-    const file=files[pathname]; if(!file){reply(res,404,{error:'页面不存在'});return;}
-    res.writeHead(200,{'Content-Type':file[1]+'; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob:; connect-src 'self'; form-action 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'"});
-    res.end(fs.readFileSync(path.join(__dirname,'prototype',file[0])));
+    const file=previewMode&&pathname==='/phone'?['phone-preview.html','text/html']:files[pathname]; if(!file){reply(res,404,{error:'页面不存在'});return;}
+    res.writeHead(200,{'Content-Type':file[1]+'; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob:; connect-src 'self'; form-action 'self'; object-src 'none'; base-uri 'none'; frame-ancestors '"+(previewMode?"self":"none")+"'"});
+    let content=fs.readFileSync(path.join(__dirname,'prototype',file[0]));if(previewMode&&pathname==='/phone'){const view=new URL(req.url,'http://localhost').searchParams.get('view');if(view==='login')content=content.toString('utf8').replace('src="/#overview"','src="/login"');else if(['entry','assets','income','settings'].includes(view))content=content.toString('utf8').replace('src="/#overview"','src="/#'+view+'"');}res.end(content);
   }catch(e){reply(res,e.statusCode||400,{error:e instanceof SyntaxError?'JSON格式不正确，请粘贴完整内容。':e.message});}
 }).listen(port,host,()=>console.log(`Family ledger: http://${host}:${port}`));
 let stopping=false;
 for(const signal of ['SIGTERM','SIGINT'])process.once(signal,()=>{
   if(stopping)return;stopping=true;
-  server.close(()=>{for(const service of [backups,periods,ledger,portfolio,expenses,auth])service.close();process.exit(0);});
+  server.close(()=>{for(const service of [backups,history,periods,ledger,portfolio,expenses,auth])service.close();process.exit(0);});
   setTimeout(()=>process.exit(1),9000).unref();
 });
