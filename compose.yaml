@@ -3,8 +3,6 @@ services:
     image: hpnzss/jiayoushu:preview
     restart: unless-stopped
     init: true
-    environment:
-      APP_ORIGINS: ${APP_ORIGINS:?请先复制.env.example为.env并填写访问地址}
     ports:
       - "${NAS_BIND_IP:-192.168.1.100}:${APP_PORT:-20001}:4318"
     volumes:

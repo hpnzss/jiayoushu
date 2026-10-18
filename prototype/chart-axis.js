@@ -6,7 +6,7 @@
  const yearPalette=['#6750d8','#e28024','#119a83','#d64d82','#288bc5','#9b62b5','#788b25','#b55735'];
  function yearColor(year){return'hsl('+(((Number(year)-2000)*137.508%360+360)%360).toFixed(2)+' 67% 48%)';}
  const api={extent,scale,zoom,memberColor,yearColor};if(typeof module!=='undefined'&&module.exports){module.exports=api;return;}root.FamilyChartAxis=api;
- api.attach=function(parent,label,onChange){let zero=false;const panel=document.createElement('div');panel.className='y-axis-controls';panel.innerHTML='<div class="y-axis-buttons"><strong>金额起点</strong></div>';const group=panel.firstChild,buttons=[];
+ api.attach=function(parent,label,onChange){let zero=true;const panel=document.createElement('div');panel.className='y-axis-controls';panel.innerHTML='<div class="y-axis-buttons"><strong>金额起点</strong></div>';const group=panel.firstChild,buttons=[];
  for(const [text,value]of [['纵轴从0开始',true],['从当前数据的最小值开始',false]]){const b=document.createElement('button');b.type='button';b.className='outline';b.textContent=text;b.onclick=()=>{zero=value;update();onChange();};buttons.push([b,value]);group.append(b);}function update(){for(const [b,value]of buttons){b.classList.toggle('active',value===zero);b.setAttribute('aria-pressed',String(value===zero));}}update();parent.append(panel);
  return{scale(values){const finite=values.filter(Number.isFinite);if(!finite.length)return scale([]);const min=zero?finite.reduce((a,b)=>Math.min(a,b),0):finite.reduce((a,b)=>Math.min(a,b)),max=finite.reduce((a,b)=>Math.max(a,b));return scale(values,[min,max+Math.max((max-min)*.08,Math.abs(max)*.01,1)]);},reset(){update();}};
  };

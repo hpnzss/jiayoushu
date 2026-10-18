@@ -2,7 +2,7 @@
 
 供家庭使用的收支与资产管理网页，使用手机或电脑浏览器访问，可部署到群晖 Docker。
 
-当前版本：**0.12.0-preview**（开发预览）。镜像仓库：[hpnzss/jiayoushu](https://hub.docker.com/r/hpnzss/jiayoushu)。`preview` 跟随通过发布检查的 main 分支；每次构建还提供 commit 标签，本版提供 `0.12.0-preview` 标签。发布状态见 [GitHub Actions](https://github.com/hpnzss/jiayoushu/actions)。
+当前版本：**0.13.0-preview**（开发预览）。镜像仓库：[hpnzss/jiayoushu](https://hub.docker.com/r/hpnzss/jiayoushu)。普通分支推送和PR运行测试；版本标签或main上的手动发布通过检查后更新 `preview`。每次发布还提供 commit 标签和固定版本 `0.13.0-preview`。发布状态见 [GitHub Actions](https://github.com/hpnzss/jiayoushu/actions)。
 
 ## 功能
 
@@ -49,7 +49,7 @@ iPhone通过Safari添加到主屏幕时，登录页及所有子页面共用名�
 
 ## 部署
 
-详见 [安装、升级与备份](INSTALL.md)。示例 compose 默认使用 Docker Hub 的 `preview` 镜像；需要固定本版可改为 `hpnzss/jiayoushu:0.12.0-preview`。
+详见 [安装、升级与备份](INSTALL.md)。示例 compose 默认使用 Docker Hub 的 `preview` 镜像；需要固定本版可改为 `hpnzss/jiayoushu:0.13.0-preview`。
 
 需要从源码运行时，安装 Node.js 24 后运行：
 
@@ -90,3 +90,9 @@ node server.cjs
 期间家庭收入包含公积金，成员与家庭普通收入曲线排除公积金，另提供公积金月/年曲线和跨年逐月对比。过去未录公积金的月份不补0。
 
 资产类型和币种饼图直接标注占比；点击扇区、百分比或柱子，在下方查看对应账户。币种占比按人民币估值计算，不把不同原币金额直接相加。贵金属、债券支持券商选择。月度余额核对按资产类型分组，一行一个账户。手机表单与月份标题已缩小；表格表头可升序、降序及恢复默认，主要卡片列表也可排序。
+
+## 0.13 更新
+
+取消APP_ORIGINS域名白名单，保留登录与跨站提交检查。饼图直接标注类别、金额、比例；折线图显示金额，并可切换全部金额横向查看。默认纵轴从0开始。加密货币支持Binance和自定义交易平台。手机日期/月控件统一外观，保留原生日期选择器；公积金优先显示定期设置，手动补录位于下方。
+
+发布流程为：分支推送及PR运行测试；版本标签v*或在main手动触发时才构建并发布Docker镜像。普通推送不会自动更新Docker Hub镜像。本地预览使用隔离测试账本；真实iPhone及NAS容器验收单独进行。

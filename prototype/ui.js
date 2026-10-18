@@ -57,7 +57,7 @@ function render() {
   globalThis.ExpenseUI?.render(r);
   globalThis.FamilyWorkflow?.renderReportStatus(r);globalThis.FamilyDashboard?.render();globalThis.FamilyHistory?.renderStatus(r);
 }
-const assetViewport={signature:null,window:null,points:[]};
+const assetViewport={signature:null,window:null,points:[],amountAll:false};
 function chart(r) {
   const allPoints = [...(r.opening ? [r.opening] : []), ...r.points].filter(p=>!(D.hiddenSnapshotDates||[]).includes(p.date));
   const signature=r.start+'|'+r.end+'|'+allPoints.length;if(signature!==assetViewport.signature){assetViewport.signature=signature;assetViewport.window=null;window.FamilyAssetNavigation?.reset();}assetViewport.points=allPoints;
@@ -65,10 +65,10 @@ function chart(r) {
   window.FamilyAssetNavigation?.update();
   if (!pts.length) { $('assetChart').innerHTML = '<div class="empty">此区间及此前没有可用资产记录</div>'; $('chartNote').textContent = ''; return; }
   const measuredWidth=$('assetChart').getBoundingClientRect().width;if(!measuredWidth)return;
-  const w = Math.max(280,Math.round(measuredWidth)), h = w<520?240:280, left = 64, right = 16, top = 20, bottom = 34;
+  const w = assetViewport.amountAll?Math.max(280,Math.round(measuredWidth),pts.length*110+80):Math.max(280,Math.round(measuredWidth)), h = measuredWidth<520?240:280, left = 64, right = 16, top = 20, bottom = 34;
   const vals=pts.map(D.total),axis=window.FamilyAssetNavigation?.scale(vals)||FamilyChartAxis.scale(vals),low=axis.min,high=axis.max;
   const firstTime = Date.parse(pts[0].date), lastTime = Date.parse(pts.at(-1).date);
-  const x = i => firstTime === lastTime ? (w + left) / 2 : left + (Date.parse(pts[i].date) - firstTime) / (lastTime - firstTime) * (w-left-right);
+  const x = i => firstTime === lastTime ? (w + left) / 2 : assetViewport.amountAll?left+i*(w-left-right)/Math.max(pts.length-1,1):left + (Date.parse(pts[i].date) - firstTime) / (lastTime - firstTime) * (w-left-right);
   const y = v => top + (high - v) / (high-low) * (h-top-bottom);
   let content = `<rect width="${w}" height="${h}" fill="transparent"/>`;
   for(const v of axis.ticks) { const yy = y(v); content += `<line x1="${left}" y1="${yy}" x2="${w-right}" y2="${yy}" stroke="#e8ede3"/><text x="${left-12}" y="${yy+4}" text-anchor="end" fill="#718078" font-size="11">${Math.abs(v)>=1000000?(v/1000000).toLocaleString('zh-CN',{maximumFractionDigits:4})+'万':(v/100).toLocaleString('zh-CN',{maximumFractionDigits:2})}</text>`; }
@@ -76,8 +76,8 @@ function chart(r) {
   for(let i=1;i<pts.length;i++) content += `<line x1="${x(i-1)}" y1="${y(vals[i-1])}" x2="${x(i)}" y2="${y(vals[i])}" stroke="var(--accent,#24634e)" stroke-width="2" ${i === 1 && r.opening ? 'stroke-dasharray="6 5"' : ''}/>`;
   let lastLabelX=-Infinity;
   pts.forEach((p,i) => { content += `<circle cx="${x(i)}" cy="${y(vals[i])}" r="3" fill="${i===0 && r.opening ? '#c6a55d' : '#24634e'}" stroke="var(--surface,white)" stroke-width="1.5"><title>${p.date} ${money(vals[i])}${i===0 && r.opening ? '（期初参考）' : p.historical?'（历史家庭总额）':''}</title></circle>`; if((x(i)-lastLabelX>=100&&x(pts.length-1)-x(i)>=80)||i===pts.length-1){lastLabelX=x(i);content += `</g><text x="${x(i)}" y="${h-12}" text-anchor="${i===0 ? 'start' : i===pts.length-1 ? 'end' : 'middle'}" fill="#718078" font-size="11">${lastTime-firstTime>366*86400000?p.date.slice(0,7):p.date.slice(5)}</text><g clip-path="url(#asset-plot-clip)">`;} });
-  content+='</g>'; $('assetChart').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="${r.start} 至 ${r.end} 家庭资产趋势，金额单位人民币元"><title>家庭资产趋势 ${r.start} 至 ${r.end}（${D.live?'本机账本':'演示数据'}）</title>${content}</svg>`;
-  $('chartNote').textContent = `${r.points.length} 个区间内记录${r.opening ? `，期初参考 ${r.opening.date}` : '，无期初参考'}。${D.live?'历史家庭总额为独立记录点，不代表各银行卡余额；其余点可能沿用旧盘点或由流水推算。连线不代表两点间每日资产。':'连线仅帮助阅读，不代表两点之间的每日实际余额。'}`;
+  const valuePoints=pts.map((p,i)=>({x:x(i),y:y(vals[i]),text:FamilyChartLabels.money(vals[i]),color:'var(--accent)',family:true,last:i===pts.length-1}));content+='</g>'+FamilyChartLabels.lineSVG(valuePoints,{left:left+2,right:w-right-2,top:4,bottom:h-bottom-3,all:assetViewport.amountAll});$('assetChart').classList.toggle('all-amounts',assetViewport.amountAll); $('assetChart').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" style="${assetViewport.amountAll?'width:'+w+'px;max-width:none;height:'+h+'px':''}" role="img" aria-label="${r.start} 至 ${r.end} 家庭资产趋势，金额单位人民币元"><title>家庭资产趋势 ${r.start} 至 ${r.end}（${D.live?'本机账本':'演示数据'}）</title>${content}</svg>`;
+  $('chartNote').textContent = `${r.points.length} 个区间内记录${r.opening ? `，期初参考 ${r.opening.date}` : '，无期初参考'}。金额直接标注；密集时可放大或选择“全部金额”横向滑动（按记录点等距展开）。${D.live?'历史家庭总额为独立记录点，不代表各银行卡余额；其余点可能沿用旧盘点或由流水推算。连线不代表两点间每日资产。':'连线仅帮助阅读，不代表两点之间的每日实际余额。'}`;
 }
 window.addEventListener('hashchange',()=>requestAnimationFrame(()=>{if(current)chart(current);}));
 if(typeof ResizeObserver!=='undefined'){let priorWidth=0;new ResizeObserver(entries=>{const width=Math.round(entries[0].contentRect.width);if(width>0&&width!==priorWidth){priorWidth=width;if(current)chart(current);}}).observe($('assetChart'));}

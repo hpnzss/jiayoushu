@@ -151,7 +151,7 @@ function openLedger(filename,{quote=()=>null,portfolioRecords=()=>[],memberKeys=
     for(const key of ['institution','typeDetail'])if(input[key]!==undefined){if(typeof input[key]!=='string'||input[key].length>80)throw Error('自定义名称不能超过80字。');account[key]=input[key].trim();}
     if(input.note!==undefined){if(typeof input.note!=='string'||input.note.length>4000)throw Error('账户备注最多4000字。');account.note=input.note;}
     if(account.type!=='其他')delete account.typeDetail;
-    if(!['银行存款/理财','银行存款','网络平台余额','网络平台','银行理财','股票','基金','贵金属','债券'].includes(account.type))delete account.institution;
+    if(!['银行存款/理财','银行存款','网络平台余额','网络平台','银行理财','股票','基金','贵金属','债券','加密货币'].includes(account.type))delete account.institution;
     if(['银行存款/理财','银行存款','网络平台余额','网络平台','银行理财'].includes(account.type)&&!account.institution)throw Error('请选择或填写银行 / 平台名称。');
     if(!before&&(!/^[A-Z]{3}$/.test(account.currency||'')||!validDate(account.startDate)))throw Error('账户币种或纳入日期无效。');
     if(!before&&account.startDate>new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date()))throw Error('账户纳入日期不能晚于今天。');
