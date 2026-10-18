@@ -1,7 +1,7 @@
 'use strict';
 (()=>{
  const types=['现金','股票','理财','基金','加密货币','贵金属','其他'];
- const positionTypes=['股票','基金','加密货币','贵金属'];
+ const positionTypes=['股票','基金','加密货币','贵金属','债券'];
  const typeName=t=>['银行卡','零钱','外币余额'].includes(t)?'现金':t;
  const assetPanel=$('accountForm').closest('article');assetPanel.querySelector('h2').textContent='建立 / 管理账户';assetPanel.querySelector('.panel-head p').textContent='银行存款/理财、现金、网络平台、股票、基金、加密货币、贵金属及自定义类型统一记录。一个账户只使用一种币种；初始余额 / 市值不算收入。';
  $('holdingRows').closest('article').hidden=true;$('holdingForm').closest('article').hidden=true;$('accounts').parentElement.hidden=true;$('draftPanel').hidden=true;$('sampleDraft').closest('article').hidden=true;$('importExample').hidden=true;
@@ -85,7 +85,7 @@
  const oldKind=$('recordKind').onchange;$('recordKind').onchange=()=>{if($('recordKind').value==='transfer'&&$('recordAccount').value===$('targetAccount').value){const other=(D.legacyAccounts||D.accounts).find(a=>a.id!==$('recordAccount').value);if(other)$('targetAccount').value=other.id;}oldKind();$('manualForm').querySelector('button').textContent=$('recordKind').value==='transfer'?'保存转账':'保存收入';};
  $('previewImport').onclick=async()=>{const b=$('previewImport');b.disabled=true;try{const text=$('importText').value.trim().replace(/^```(?:json)?\s*/,'').replace(/\s*```$/,'');const data=JSON.parse(text),r=await directSave(data,'import');await refreshLedger();$('importMessage').textContent=r.alreadyImported?'这批已保存，没有重复导入。':`已保存 ${r.count} 条记录。`;}catch(e){$('importMessage').textContent=e.message;}finally{b.disabled=false;}};
  $('copyGuide').onclick=async()=>{const guide=importGuide()+'\n账户已统一。股票、基金、加密货币、贵金属可记录balance总市值；也可同时带quantity和price，两者最多6位小数且乘积需与amount原币总价值一致。没有RSU或ESPP录入。';$('guidePreview').textContent=guide;$('guidePreview').hidden=false;try{await navigator.clipboard.writeText(guide);$('importMessage').textContent='已复制。';}catch{$('importMessage').textContent='格式已显示在下方，可直接复制。';}};
- function applyPreviewNotices(){if(D.preview){$('appNotice').textContent='可操作预览 · 使用独立示例账本，请只填虚拟数据。可以新增账户、保存收支并刷新检查；不会修改群晖账本。';$('appFooter').textContent='家有数 · V0.11 浏览器预览 · 数据仅保存在这台电脑';}document.querySelector('.badge').textContent=D.preview?'可操作预览 · 直接保存':'家庭账本 · 直接保存';$('manualForm').querySelector('button').textContent=$('recordKind').value==='transfer'?'保存转账':'保存收入';$('manualForm').closest('article').querySelector('.panel-head p').textContent='选择收入分类、成员和到账账户，填写金额后直接保存。';}
+ function applyPreviewNotices(){if(D.preview){$('appNotice').textContent='可操作预览 · 使用独立示例账本，请只填虚拟数据。可以新增账户、保存收支并刷新检查；不会修改群晖账本。';$('appFooter').textContent='家有数 · V0.12 浏览器预览 · 数据仅保存在这台电脑';}document.querySelector('.badge').textContent=D.preview?'可操作预览 · 直接保存':'家庭账本 · 直接保存';$('manualForm').querySelector('button').textContent=$('recordKind').value==='transfer'?'保存转账':'保存收入';$('manualForm').closest('article').querySelector('.panel-head p').textContent='选择收入分类、成员和到账账户，填写金额后直接保存。';}
  function updateNotices(){if(!D.live)return;$('portfolioOverview').hidden=true;syncAccountOptions();renderAccounts();if(!selected)updateAssetFields();applyPreviewNotices();
   $('onboardingStatus').textContent=`已建立 ${D.accounts.length} 个账户。现金、股票及其他资产都在同一页维护。`;
  }

@@ -24,6 +24,7 @@ const periods=require('./periods.cjs').openPeriods(path.join(dir,'family.sqlite'
 const history=require('./history.cjs').openHistory(path.join(dir,'family.sqlite'),{profiles:()=>auth.profiles(),state:financialState,periods:()=>periods.list()});
 const backups=openBackups(path.join(dir,'family.sqlite'));
 const maintenance=require('./maintenance.cjs').openMaintenance(path.join(dir,'family.sqlite'),{ledger,periods,history,profiles:()=>auth.profiles(),backup:()=>backups.safety(),state:financialState});
+const provident=require('./provident.cjs').openProvident(path.join(dir,'family.sqlite'),{ledger,auth,periods,history});provident.runDue();setInterval(()=>provident.runDue(),60*60*1000).unref();
 backups.automatic();setInterval(()=>backups.automatic(),6*60*60*1000).unref();
 if(process.env.FAMILY_FX_DISABLE!=='1'){
   fx.refresh();
@@ -35,8 +36,8 @@ Object.assign(files,{'/login':['login.html','text/html'],'/auth.js':['auth.js','
 files['/backup-ui.js']=['backup-ui.js','text/javascript'];
 files['/workflow-ui.js']=['workflow-ui.js','text/javascript'];files['/monthly-ui.js']=['monthly-ui.js','text/javascript'];
 files['/client-common.js']=['client-common.js','text/javascript'];files['/direct-ui.js']=['direct-ui.js','text/javascript'];
-files['/choices-ui.js']=['choices-ui.js','text/javascript'];files['/modern.css']=['modern.css','text/css'];
-for(const name of ['asset-distribution.js','inline-actions.js','expense-composition.js','account-catalog.js','chart-axis.js','income-composition.js','mobile-shell.js','asset-navigation.js','income-charts.js','income-options.js','maintenance-ui.js','income-series.js','dashboard-ui.js','modern-ui.js','history-ui.js','history-period.js'])files['/'+name]=[name,'text/javascript'];
+files['/choices-ui.js']=['choices-ui.js','text/javascript'];files['/modern.css']=['modern.css','text/css'];files['/mobile.css']=['mobile.css','text/css'];
+for(const name of ['provident-ui.js','table-sort.js','asset-distribution.js','inline-actions.js','expense-composition.js','account-catalog.js','chart-axis.js','income-composition.js','mobile-shell.js','asset-navigation.js','income-charts.js','income-options.js','maintenance-ui.js','income-series.js','dashboard-ui.js','modern-ui.js','history-ui.js','history-period.js'])files['/'+name]=[name,'text/javascript'];
 function reply(res,status,value){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));}
 const cookieName=previewMode?'family_preview_session':'family_session';
 function readToken(req){return(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith(cookieName+'='))?.slice(cookieName.length+1);}
@@ -48,21 +49,22 @@ const server=http.createServer(async(req,res)=>{
   if(!origin){reply(res,403,{error:'不允许的访问地址，请检查APP_ORIGINS及反向代理Host设置。'});return;}
   try{
     const token=readToken(req),user=auth.session(token);
-    if(req.method==='GET'&&pathname==='/health'){reply(res,200,{status:'ok',version:'0.11.0-preview'});return;}
+    if(req.method==='GET'&&pathname==='/health'){reply(res,200,{status:'ok',version:'0.12.0-preview'});return;}
     if(req.method==='GET'&&pathname==='/api/auth/status'){reply(res,200,{setupRequired:auth.setupRequired(),signedIn:!!user,user});return;}
     if(previewMode&&req.method==='GET'&&pathname==='/preview'){const r=await auth.login({username:'previewadmin',password:process.env.FAMILY_PREVIEW_PASSWORD},'local-preview',token);setCookie(res,r.token,origin);redirect(res,'/#assets');return;}
     if(req.method==='GET'&&pathname==='/manifest.webmanifest'){res.writeHead(200,{'Content-Type':'application/manifest+json; charset=utf-8','Cache-Control':'no-cache'});res.end(JSON.stringify(require('./app-icons.cjs').manifest));return;}
     const iconSize={'/apple-touch-icon.png':180,'/apple-touch-icon-precomposed.png':180,'/icon-192.png':192,'/icon-512.png':512,'/favicon.png':32}[pathname];
     if(req.method==='GET'&&iconSize){res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'public, max-age=86400','X-Content-Type-Options':'nosniff'});res.end(require('./app-icons.cjs').png(iconSize));return;}
     const publicPost=['/api/auth/setup','/api/auth/login','/api/auth/recover'].includes(pathname);
-    if(!user&&!publicPost&&!(previewMode&&pathname==='/phone')&&!['/login','/auth.js','/mobile-shell.js','/style.css','/modern.css'].includes(pathname)){
+    if(!user&&!publicPost&&!(previewMode&&pathname==='/phone')&&!['/login','/auth.js','/mobile-shell.js','/style.css','/modern.css','/mobile.css'].includes(pathname)){
       if(pathname.startsWith('/api/'))reply(res,401,{error:'请先登录，或登录已过期。'});else redirect(res,'/login');return;
     }
     if(user&&req.method==='GET'&&pathname==='/login'){redirect(res,'/');return;}
-    if(req.method==='GET'&&pathname==='/api/runtime'){reply(res,200,{deployment:config.deployment,preview:previewMode,version:'0.11.0-preview'});return;}
+    if(req.method==='GET'&&pathname==='/api/runtime'){reply(res,200,{deployment:config.deployment,preview:previewMode,version:'0.12.0-preview'});return;}
     if(req.method==='GET'&&pathname==='/api/catalog'){reply(res,200,require('./banks.cjs'));return;}
-    if(req.method==='GET'&&pathname==='/api/state'){reply(res,200,{...financialState(),hiddenSnapshotDates:maintenance.hiddenSnapshotDates(),history:history.list(),members:memberKeys(),memberProfiles:auth.profiles(),periods:periods.list()});return;}
+    if(req.method==='GET'&&pathname==='/api/state'){provident.runDue();reply(res,200,{...financialState(),hiddenSnapshotDates:maintenance.hiddenSnapshotDates(),history:history.list(),members:memberKeys(),memberProfiles:auth.profiles(),periods:periods.list()});return;}
     if(req.method==='GET'&&pathname==='/api/members'){reply(res,200,{members:auth.listMembers(user)});return;}
+    if(req.method==='GET'&&pathname==='/api/provident'){reply(res,200,provident.status());return;}
     if(req.method==='GET'&&pathname==='/api/maintenance'){auth.requireAdmin(user);reply(res,200,{trash:maintenance.list()});return;}
     if(req.method==='GET'&&pathname==='/api/periods/review'){reply(res,200,periods.review(new URL(req.url,'http://localhost').searchParams.get('month')));return;}
     if(req.method==='GET'&&pathname==='/api/periods/preview'){const q=new URL(req.url,'http://localhost').searchParams,p=require('./period-preview.cjs').previewPeriod(financialState(),q.get('month'),q.get('through'));reply(res,200,{...p,ledgerClosed:periods.list().some(r=>r.month===p.month)});return;}
@@ -70,7 +72,7 @@ const server=http.createServer(async(req,res)=>{
     if(req.method==='GET'&&pathname==='/api/backups/export'){res.setHeader('Content-Disposition','attachment; filename="family-assets-backup.json"');reply(res,200,backups.exportBackup());return;}
     if(req.method==='GET'&&pathname==='/api/backups/status'){reply(res,200,backups.status());return;}
     if(req.method==='GET'&&pathname==='/api/fx'){reply(res,200,process.env.FAMILY_FX_DISABLE==='1'?fx.state():await fx.refresh());return;}
-    if(req.method==='POST'&&['/api/maintenance/preview','/api/maintenance/commit','/api/history/preview','/api/history/commit','/api/balances/month','/api/onboarding','/api/records/save','/api/auth/recover','/api/auth/recovery-code','/api/members/profile','/api/members/add','/api/members/remove','/api/members/reset-password','/api/periods/close','/api/periods/reopen','/api/backups/preview','/api/backups/restore','/api/import/preview','/api/import/commit','/api/fx/refresh','/api/accounts','/api/expenses/month','/api/auth/setup','/api/auth/login','/api/auth/logout','/api/auth/password'].includes(pathname)){
+    if(req.method==='POST'&&['/api/provident/manual','/api/provident/rule','/api/maintenance/preview','/api/maintenance/commit','/api/history/preview','/api/history/commit','/api/balances/month','/api/onboarding','/api/records/save','/api/auth/recover','/api/auth/recovery-code','/api/members/profile','/api/members/add','/api/members/remove','/api/members/reset-password','/api/periods/close','/api/periods/reopen','/api/backups/preview','/api/backups/restore','/api/import/preview','/api/import/commit','/api/fx/refresh','/api/accounts','/api/expenses/month','/api/auth/setup','/api/auth/login','/api/auth/logout','/api/auth/password'].includes(pathname)){
       if((req.headers.origin&&req.headers.origin!==origin)||req.headers['sec-fetch-site']==='cross-site'){reply(res,403,{error:'不允许跨站提交'});return;}
       if(!(req.headers['content-type']||'').startsWith('application/json')){reply(res,415,{error:'仅接受JSON数据'});return;}
       const chunks=[];let size=0;
@@ -79,6 +81,8 @@ const server=http.createServer(async(req,res)=>{
       if(!publicPost&&!auth.session(token)){reply(res,401,{error:'登录状态已变化，请重新登录。'});return;}
       if(pathname==='/api/auth/recover'){reply(res,200,await auth.recover(input,req.socket.remoteAddress||''));return;}
       if(publicPost){const result=pathname.endsWith('/setup')?await auth.setup(input):await auth.login(input,req.socket.remoteAddress||'',token);setCookie(res,result.token,origin);reply(res,200,{user:result.user,...(result.recoveryCode?{recoveryCode:result.recoveryCode}:{})});return;}
+      if(pathname==='/api/provident/manual'){reply(res,200,provident.manual(user,input));return;}
+      if(pathname==='/api/provident/rule'){reply(res,200,provident.save(user,input));return;}
       if(pathname==='/api/onboarding'){reply(res,200,auth.saveOnboarding(user,input));return;}
       if(pathname==='/api/maintenance/preview'){auth.requireAdmin(user);reply(res,200,maintenance.preview(input,user));return;}
       if(pathname==='/api/maintenance/commit'){auth.requireAdmin(user);const r=maintenance.commit(input.token,user);auth.recordAction(user,'maintenance/commit');reply(res,200,r);return;}
@@ -126,6 +130,6 @@ const server=http.createServer(async(req,res)=>{
 let stopping=false;
 for(const signal of ['SIGTERM','SIGINT'])process.once(signal,()=>{
   if(stopping)return;stopping=true;
-  server.close(()=>{for(const service of [maintenance,backups,history,periods,ledger,portfolio,expenses,auth])service.close();process.exit(0);});
+  server.close(()=>{for(const service of [provident,maintenance,backups,history,periods,ledger,portfolio,expenses,auth])service.close();process.exit(0);});
   setTimeout(()=>process.exit(1),9000).unref();
 });

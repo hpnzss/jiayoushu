@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),{spawn}=require('node:child_process');
 const catalog=require('./prototype/account-catalog.js'),axis=require('./prototype/chart-axis.js'),{range}=require('./prototype/income-charts.js');
-assert.deepEqual(catalog.types,['银行存款/理财','现金','网络平台','基金','股票','加密货币','贵金属']);assert.equal(catalog.normalize('理财'),'银行存款/理财');assert.equal(catalog.normalize('网络平台余额'),'网络平台');
+assert.deepEqual(catalog.types,['银行存款/理财','现金','网络平台','基金','股票','债券','加密货币','贵金属']);assert.equal(catalog.normalize('理财'),'银行存款/理财');assert.equal(catalog.normalize('网络平台余额'),'网络平台');
 assert.deepEqual(catalog.institutions('股票'),['国泰','中信建投','IBKR','长桥','其他']);assert(catalog.institutions('股票',[{type:'股票',institution:'自定义券商'}]).includes('自定义券商'));assert(catalog.institutions('银行理财',[],['示例银行']).includes('示例银行'));assert.deepEqual(catalog.institutions('现金'),['其他']);
 assert.deepEqual(catalog.institutions('银行存款',[{type:'银行理财',institution:'已用银行'}],['甲银行','已用银行'],['最近银行']).slice(0,3),['最近银行','已用银行','甲银行']);
 const sample=[{id:'b',owner:'b',type:'银行存款',institution:'甲银行',name:'乙'},{id:'cash',owner:'a',type:'现金',name:'现金'},{id:'a2',owner:'a',type:'银行存款',institution:'甲银行',name:'乙'},{id:'a1',owner:'a',type:'银行存款',institution:'甲银行',name:'甲'}];assert.deepEqual(catalog.sorted(sample,[{key:'a'},{key:'b'}]).map(a=>a.id),['a1','a2','cash','b']);assert.equal(sample[0].id,'b');

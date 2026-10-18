@@ -43,6 +43,8 @@ jobs:
           node verify-v09.cjs
           node verify-v010.cjs
           node verify-v011.cjs
+          node verify-table-sort.cjs
+          node verify-v012.cjs
 
   publish:
     needs: test
