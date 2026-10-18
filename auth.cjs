@@ -59,7 +59,7 @@ function openAuth(filename,{now=()=>Date.now()}={}){
  }
  db.exec('CREATE TABLE IF NOT EXISTS auth_onboarding(user_id TEXT PRIMARY KEY,payload TEXT NOT NULL)');
  function onboarding(user){const row=db.prepare('SELECT payload FROM auth_onboarding WHERE user_id=?').get(user.id);return row?JSON.parse(row.payload):{step:1,completed:false};}
- function saveOnboarding(user,input){if(!Number.isInteger(input.step)||input.step<1||input.step>4||typeof input.completed!=='boolean')throw Error('指引进度无效。');const value={step:input.step,completed:input.completed};db.prepare('INSERT INTO auth_onboarding VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET payload=excluded.payload').run(user.id,JSON.stringify(value));return value;}
+ function saveOnboarding(user,input){if(!Number.isInteger(input.step)||input.step<1||input.step>4||typeof input.completed!=='boolean'||input.dismissed!==undefined&&typeof input.dismissed!=='boolean')throw Error('指引进度无效。');const value={step:input.step,completed:input.completed,...(input.dismissed===true?{dismissed:true}:{})};db.prepare('INSERT INTO auth_onboarding VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET payload=excluded.payload').run(user.id,JSON.stringify(value));return value;}
  return{setupRequired,session,setup,login,logout,changePassword,reauthenticate,recordAction,requireAdmin,listMembers,addMember,updateMember,removeMember,resetMember,renewRecovery,recover,profiles,onboarding,saveOnboarding,close:()=>db.close()};
 }
 module.exports={openAuth};

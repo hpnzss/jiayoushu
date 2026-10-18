@@ -10,12 +10,12 @@
  function drawGuide(){const [title,description,action]=steps[progress.step-1];$('guideTitle').textContent=title;$('guideDescription').textContent=description;$('guideNumber').textContent=`第 ${progress.step} 步 / 共 4 步`;$('guideGo').textContent=action;$('guideBack').disabled=progress.step===1;$('guideNext').disabled=progress.step===1&&!D.accounts.length;$('guideNext').textContent=progress.step===4?'完成指引':'下一步';$('guideProgress').textContent=progress.step===1?D.accounts.length?`已建立 ${D.accounts.length} 个账户，可以继续。`:'请先建立至少一个账户，再进入下一步。':'随时可返回修改；指引进度不会影响账本。';$('guideSteps').replaceChildren();steps.forEach(([name],i)=>{const li=document.createElement('li');li.textContent=(i+1)+'. '+name;li.className=i+1===progress.step?'active':'';$('guideSteps').append(li);});continueGuide.hidden=progress.completed;}
  async function persist(){try{await api('/api/onboarding',progress);$('guideError').textContent='';}catch(e){$('guideError').textContent=e.message;throw e;}}
  function showGuide(){drawGuide();if(!guide.open)guide.showModal();}
- $('guideLater').onclick=()=>guide.close();continueGuide.onclick=showGuide;
+ async function dismiss(){progress.dismissed=true;guide.close();try{await persist();}catch{try{localStorage.setItem('family-guide-dismissed:'+window.currentFamilyUser?.id,'1');}catch{}}}$('guideLater').onclick=dismiss;guide.addEventListener('cancel',e=>{e.preventDefault();dismiss();});continueGuide.onclick=showGuide;
  $('guideNext').onclick=async()=>{if(progress.step===1&&!D.accounts.length)return;const old={...progress};if(progress.step===4)progress.completed=true;else progress.step++;try{await persist();drawGuide();if(progress.completed)guide.close();}catch{progress=old;}};
  $('guideBack').onclick=async()=>{if(progress.step>1){progress.step--;try{await persist();drawGuide();}catch{}}};
- $('restartGuide').onclick=async()=>{progress={step:1,completed:false};try{await persist();showGuide();}catch{}};
- $('guideGo').onclick=()=>{guide.close();location.hash=progress.step===1?'#assets':'#entry';FamilyMonth.showView?.(progress.step===3?'balances':progress.step===4?'result':'flows');requestAnimationFrame(()=>{const id=progress.step===1?'manageName':progress.step===2?'recordAmount':progress.step===3?'monthBalanceDate':'previewMonth';$(id)?.focus();if(progress.step===4)$('previewMonth').click();});};
- async function loadGuide(){if(!D.live||guideLoaded)return;guideLoaded=true;try{progress=await api('/api/onboarding');drawGuide();if(!progress.completed)showGuide();}catch{guideLoaded=false;}}
+ $('restartGuide').onclick=async()=>{progress={step:1,completed:false,dismissed:true};try{await persist();showGuide();}catch{}};
+ $('guideGo').onclick=()=>{dismiss();location.hash=progress.step===1?'#assets':'#entry';FamilyMonth.showView?.(progress.step===3?'balances':progress.step===4?'result':'flows');requestAnimationFrame(()=>{const id=progress.step===1?'manageName':progress.step===2?'recordAmount':progress.step===3?'monthBalanceDate':'previewMonth';$(id)?.focus();if(progress.step===4)$('previewMonth').click();});};
+ async function loadGuide(){if(!D.live||!window.currentFamilyUser||guideLoaded)return;guideLoaded=true;try{progress=await api('/api/onboarding');drawGuide();let localDismissed=false;try{localDismissed=localStorage.getItem('family-guide-dismissed:'+window.currentFamilyUser.id)==='1';}catch{}if(!progress.completed&&!progress.dismissed&&!localDismissed){progress.dismissed=true;await persist();if(!D.accounts.length)showGuide();}}catch{guideLoaded=false;}}
 
  // 月中临时结算只读预览；原有正式关账接口及历史保护保持独立。
  const previewButton=document.createElement('button');previewButton.id='previewMonth';previewButton.type='button';previewButton.className='solid';previewButton.textContent='临时关账 · 预览本月结果';$('finishMonth').before(previewButton);$('finishMonth').className='outline';$('finishMonth').textContent='正式确认关账';
@@ -26,5 +26,5 @@
 
  for(const id of ['workflowMonth','monthBalanceDate'])$(id).addEventListener('change',()=>{previewPanel.hidden=true;});document.addEventListener('family-ledger-ready',()=>{previewPanel.hidden=true;});
  function renderDashboard(){onboarding.hidden=true;if(guideLoaded)drawGuide();loadGuide();window.FamilyIncomeCharts?.render();}
- window.FamilyDashboard={render:renderDashboard};document.addEventListener('family-ledger-ready',renderDashboard);document.addEventListener('family-app-ready',renderDashboard);if(D.live)renderDashboard();
+ document.addEventListener('family-session-ready',loadGuide);window.FamilyDashboard={render:renderDashboard};document.addEventListener('family-ledger-ready',renderDashboard);document.addEventListener('family-app-ready',renderDashboard);if(D.live)renderDashboard();
 })();

@@ -36,7 +36,7 @@ files['/backup-ui.js']=['backup-ui.js','text/javascript'];
 files['/workflow-ui.js']=['workflow-ui.js','text/javascript'];files['/monthly-ui.js']=['monthly-ui.js','text/javascript'];
 files['/client-common.js']=['client-common.js','text/javascript'];files['/direct-ui.js']=['direct-ui.js','text/javascript'];
 files['/choices-ui.js']=['choices-ui.js','text/javascript'];files['/modern.css']=['modern.css','text/css'];
-for(const name of ['asset-navigation.js','income-charts.js','income-options.js','maintenance-ui.js','income-series.js','dashboard-ui.js','modern-ui.js','history-ui.js','history-period.js'])files['/'+name]=[name,'text/javascript'];
+for(const name of ['chart-axis.js','income-composition.js','mobile-shell.js','asset-navigation.js','income-charts.js','income-options.js','maintenance-ui.js','income-series.js','dashboard-ui.js','modern-ui.js','history-ui.js','history-period.js'])files['/'+name]=[name,'text/javascript'];
 function reply(res,status,value){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(value));}
 const cookieName=previewMode?'family_preview_session':'family_session';
 function readToken(req){return(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith(cookieName+'='))?.slice(cookieName.length+1);}
@@ -48,15 +48,18 @@ const server=http.createServer(async(req,res)=>{
   if(!origin){reply(res,403,{error:'不允许的访问地址，请检查APP_ORIGINS及反向代理Host设置。'});return;}
   try{
     const token=readToken(req),user=auth.session(token);
-    if(req.method==='GET'&&pathname==='/health'){reply(res,200,{status:'ok',version:'0.8.0-preview'});return;}
+    if(req.method==='GET'&&pathname==='/health'){reply(res,200,{status:'ok',version:'0.9.0-preview'});return;}
     if(req.method==='GET'&&pathname==='/api/auth/status'){reply(res,200,{setupRequired:auth.setupRequired(),signedIn:!!user,user});return;}
     if(previewMode&&req.method==='GET'&&pathname==='/preview'){const r=await auth.login({username:'previewadmin',password:process.env.FAMILY_PREVIEW_PASSWORD},'local-preview',token);setCookie(res,r.token,origin);redirect(res,'/#assets');return;}
+    if(req.method==='GET'&&pathname==='/manifest.webmanifest'){res.writeHead(200,{'Content-Type':'application/manifest+json; charset=utf-8','Cache-Control':'no-cache'});res.end(JSON.stringify(require('./app-icons.cjs').manifest));return;}
+    const iconSize={'/apple-touch-icon.png':180,'/apple-touch-icon-precomposed.png':180,'/icon-192.png':192,'/icon-512.png':512,'/favicon.png':32}[pathname];
+    if(req.method==='GET'&&iconSize){res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'public, max-age=86400','X-Content-Type-Options':'nosniff'});res.end(require('./app-icons.cjs').png(iconSize));return;}
     const publicPost=['/api/auth/setup','/api/auth/login','/api/auth/recover'].includes(pathname);
-    if(!user&&!publicPost&&!(previewMode&&pathname==='/phone')&&!['/login','/auth.js','/style.css','/modern.css'].includes(pathname)){
+    if(!user&&!publicPost&&!(previewMode&&pathname==='/phone')&&!['/login','/auth.js','/mobile-shell.js','/style.css','/modern.css'].includes(pathname)){
       if(pathname.startsWith('/api/'))reply(res,401,{error:'请先登录，或登录已过期。'});else redirect(res,'/login');return;
     }
     if(user&&req.method==='GET'&&pathname==='/login'){redirect(res,'/');return;}
-    if(req.method==='GET'&&pathname==='/api/runtime'){reply(res,200,{deployment:config.deployment,preview:previewMode,version:'0.8.0-preview'});return;}
+    if(req.method==='GET'&&pathname==='/api/runtime'){reply(res,200,{deployment:config.deployment,preview:previewMode,version:'0.9.0-preview'});return;}
     if(req.method==='GET'&&pathname==='/api/catalog'){reply(res,200,require('./banks.cjs'));return;}
     if(req.method==='GET'&&pathname==='/api/state'){reply(res,200,{...financialState(),history:history.list(),members:memberKeys(),memberProfiles:auth.profiles(),periods:periods.list()});return;}
     if(req.method==='GET'&&pathname==='/api/members'){reply(res,200,{members:auth.listMembers(user)});return;}

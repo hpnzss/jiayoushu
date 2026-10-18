@@ -2,7 +2,7 @@
 
 供家庭使用的收支与资产管理网页，使用手机或电脑浏览器访问，可部署到群晖 Docker。
 
-当前版本：**0.8.0-preview**（开发预览）。镜像仓库：[hpnzss/jiayoushu](https://hub.docker.com/r/hpnzss/jiayoushu)。`preview` 跟随通过发布检查的 main 分支；每次构建还提供 commit 标签，本版提供 `0.8.0-preview` 标签。发布状态见 [GitHub Actions](https://github.com/hpnzss/jiayoushu/actions)。
+当前版本：**0.9.0-preview**（开发预览）。镜像仓库：[hpnzss/jiayoushu](https://hub.docker.com/r/hpnzss/jiayoushu)。`preview` 跟随通过发布检查的 main 分支；每次构建还提供 commit 标签，本版提供 `0.9.0-preview` 标签。发布状态见 [GitHub Actions](https://github.com/hpnzss/jiayoushu/actions)。
 
 ## 功能
 
@@ -23,6 +23,18 @@
 
 收入到账账户按本人及共同账户筛选，当前浏览器按登录身份记住常用账户、来源。成员可标记男、女或不指定用于配色，家庭合计为粗线。月/年收入和资产图支持缩放、滑块和拖动，圆点可查看金额；可切换时间快捷范围及不同年份逐月比较。移除成员后不再显示其个人图表，但历史收入保留在家庭合计中。
 
+## 0.9图表与iPhone主屏幕
+
+“家庭收入构成”用环形图展示所选期间家庭收入的成员金额与比例，不受收入明细单成员筛选影响；已移除成员的历史收入合并为匿名“历史其他收入”。
+
+时间快捷项为近1月、年初至今、近半年、近1/2/3/5年和有史以来；近1月从上月同日开始（不足取该月末日）到今天，包含首尾。原“年度”快捷项移除，曲线的按月/按年粒度仍保留。跨年比较以不同颜色表示年份、线型表示成员、粗实线表示家庭。
+
+全部收入和资产曲线提供纵轴自动适配、放大/缩小、从0开始及手动金额上下限。坐标显示真实金额，范围外记录不删除，数据表保留完整金额。
+
+iPhone通过Safari添加到主屏幕时，登录页及所有子页面共用名称“家有数”、钱包logo、manifest和根路径启动入口。没有添加离线账本缓存，访问数据仍需连接NAS。旧主屏幕入口建议移除后重新添加，以重新读取名称和图标；这只移除快捷入口，不删除服务器账本。已有账号首次使用新版本不会重复自动弹指引；“稍后”和已完成状态保存在服务器，可在设置中手动继续/重看。
+
+安装元数据参照[Apple配置说明](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/ConfiguringWebApplications/ConfiguringWebApplications.html)及[WebKit主屏幕Web应用说明](https://webkit.org/blog/13878/)。本机已验证元数据、公开图标、390px布局和暂停后的页面切换/重载；真实iPhone安装及系统缓存行为还需在设备上确认。
+
 ## 历史导入
 
 收支统计顶部进入“导入历史收入”，账户与资产顶部进入“导入历史总资产”。设置与备份中也有统一入口。导入和更正需要管理员。
@@ -37,7 +49,7 @@
 
 ## 部署
 
-详见 [安装、升级与备份](INSTALL.md)。示例 compose 默认使用 Docker Hub 的 `preview` 镜像；需要固定本版可改为 `hpnzss/jiayoushu:0.8.0-preview`。
+详见 [安装、升级与备份](INSTALL.md)。示例 compose 默认使用 Docker Hub 的 `preview` 镜像；需要固定本版可改为 `hpnzss/jiayoushu:0.9.0-preview`。
 
 需要从源码运行时，安装 Node.js 24 后运行：
 

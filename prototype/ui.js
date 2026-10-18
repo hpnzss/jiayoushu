@@ -42,8 +42,7 @@ function render() {
   incomeTrend(r);
   $('gapValue').textContent = signed(r.gap);
   chart(r);
-  const max = Math.max(...r.byMember.map(x => x.cents), 1);
-  $('memberBars').innerHTML = r.byMember.map(x => `<div class="bar-row"><div class="bar-label"><span>${escapeHTML(memberName(x.name))}${member !== '全家' && member !== x.name ? ' · 对比参考' : ''}</span><strong>${money(x.cents)}</strong></div><div class="track"><div class="fill" style="width:${x.cents / max * 100}%"></div></div></div>`).join('');
+  globalThis.FamilyIncomeComposition?.render();
   const sources = Object.create(null);
   r.rows.forEach(x => {const category=x.category==='其他'?x.source:x.category||FamilyClient.incomeCategory(x.source);sources[category]=(sources[category]||0)+x.cents;});
   $('sources').innerHTML = Object.keys(sources).length ? '<div class="source-chips">' + Object.entries(sources).map(([k,v]) => `<span class="chip">${escapeHTML(k)} ${money(v)}</span>`).join('') + '</div>' : '<p class="muted">所选区间没有收入记录。</p>';
@@ -61,21 +60,22 @@ function render() {
 const assetViewport={signature:null,window:null,points:[]};
 function chart(r) {
   const allPoints = [...(r.opening ? [r.opening] : []), ...r.points];
-  const signature=r.start+'|'+r.end+'|'+allPoints.length;if(signature!==assetViewport.signature){assetViewport.signature=signature;assetViewport.window=null;}assetViewport.points=allPoints;
+  const signature=r.start+'|'+r.end+'|'+allPoints.length;if(signature!==assetViewport.signature){assetViewport.signature=signature;assetViewport.window=null;window.FamilyAssetNavigation?.reset();}assetViewport.points=allPoints;
   const pts=assetViewport.window?allPoints.slice(assetViewport.window[0],assetViewport.window[1]+1):allPoints;
   window.FamilyAssetNavigation?.update();
   if (!pts.length) { $('assetChart').innerHTML = '<div class="empty">此区间及此前没有可用资产记录</div>'; $('chartNote').textContent = ''; return; }
   const w = Math.max(280,Math.round($('assetChart').getBoundingClientRect().width||700)), h = w<520?240:280, left = 64, right = 16, top = 20, bottom = 34;
-  const vals = pts.map(D.total), low = Math.floor(Math.min(...vals) / 1000000) * 1000000 - 1000000, high = Math.ceil(Math.max(...vals) / 1000000) * 1000000 + 1000000;
+  const vals=pts.map(D.total),axis=window.FamilyAssetNavigation?.scale(vals)||FamilyChartAxis.scale(vals),low=axis.min,high=axis.max;
   const firstTime = Date.parse(pts[0].date), lastTime = Date.parse(pts.at(-1).date);
   const x = i => firstTime === lastTime ? (w + left) / 2 : left + (Date.parse(pts[i].date) - firstTime) / (lastTime - firstTime) * (w-left-right);
   const y = v => top + (high - v) / (high-low) * (h-top-bottom);
   let content = `<rect width="${w}" height="${h}" fill="transparent"/>`;
-  for(let i=0;i<4;i++) { const v = low + (high-low)*i/3, yy = y(v); content += `<line x1="${left}" y1="${yy}" x2="${w-right}" y2="${yy}" stroke="#e8ede3"/><text x="${left-12}" y="${yy+4}" text-anchor="end" fill="#718078" font-size="11">${(v/1000000).toFixed(1)}万</text>`; }
+  for(const v of axis.ticks) { const yy = y(v); content += `<line x1="${left}" y1="${yy}" x2="${w-right}" y2="${yy}" stroke="#e8ede3"/><text x="${left-12}" y="${yy+4}" text-anchor="end" fill="#718078" font-size="11">${(v/1000000).toFixed(1)}万</text>`; }
+  content+=`<defs><clipPath id="asset-plot-clip"><rect x="${left-4}" y="${top}" width="${w-left-right+8}" height="${h-top-bottom}"/></clipPath></defs><g clip-path="url(#asset-plot-clip)">`;
   for(let i=1;i<pts.length;i++) content += `<line x1="${x(i-1)}" y1="${y(vals[i-1])}" x2="${x(i)}" y2="${y(vals[i])}" stroke="var(--accent,#24634e)" stroke-width="2" ${i === 1 && r.opening ? 'stroke-dasharray="6 5"' : ''}/>`;
   let lastLabelX=-Infinity;
-  pts.forEach((p,i) => { content += `<circle cx="${x(i)}" cy="${y(vals[i])}" r="3" fill="${i===0 && r.opening ? '#c6a55d' : '#24634e'}" stroke="var(--surface,white)" stroke-width="1.5"><title>${p.date} ${money(vals[i])}${i===0 && r.opening ? '（期初参考）' : p.historical?'（历史家庭总额）':''}</title></circle>`; if((x(i)-lastLabelX>=100&&x(pts.length-1)-x(i)>=80)||i===pts.length-1){lastLabelX=x(i);content += `<text x="${x(i)}" y="${h-12}" text-anchor="${i===0 ? 'start' : i===pts.length-1 ? 'end' : 'middle'}" fill="#718078" font-size="11">${lastTime-firstTime>366*86400000?p.date.slice(0,7):p.date.slice(5)}</text>`;} });
-  $('assetChart').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="${r.start} 至 ${r.end} 家庭资产趋势，金额单位人民币元"><title>家庭资产趋势 ${r.start} 至 ${r.end}（${D.live?'本机账本':'演示数据'}）</title>${content}</svg>`;
+  pts.forEach((p,i) => { content += `<circle cx="${x(i)}" cy="${y(vals[i])}" r="3" fill="${i===0 && r.opening ? '#c6a55d' : '#24634e'}" stroke="var(--surface,white)" stroke-width="1.5"><title>${p.date} ${money(vals[i])}${i===0 && r.opening ? '（期初参考）' : p.historical?'（历史家庭总额）':''}</title></circle>`; if((x(i)-lastLabelX>=100&&x(pts.length-1)-x(i)>=80)||i===pts.length-1){lastLabelX=x(i);content += `</g><text x="${x(i)}" y="${h-12}" text-anchor="${i===0 ? 'start' : i===pts.length-1 ? 'end' : 'middle'}" fill="#718078" font-size="11">${lastTime-firstTime>366*86400000?p.date.slice(0,7):p.date.slice(5)}</text><g clip-path="url(#asset-plot-clip)">`;} });
+  content+='</g>'; $('assetChart').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" role="img" aria-label="${r.start} 至 ${r.end} 家庭资产趋势，金额单位人民币元"><title>家庭资产趋势 ${r.start} 至 ${r.end}（${D.live?'本机账本':'演示数据'}）</title>${content}</svg>`;
   $('chartNote').textContent = `${r.points.length} 个区间内记录${r.opening ? `，期初参考 ${r.opening.date}` : '，无期初参考'}。${D.live?'历史家庭总额为独立记录点，不代表各银行卡余额；其余点可能沿用旧盘点或由流水推算。连线不代表两点间每日资产。':'连线仅帮助阅读，不代表两点之间的每日实际余额。'}`;
 }
 if(typeof ResizeObserver!=='undefined'){let priorWidth=0;new ResizeObserver(entries=>{const width=Math.round(entries[0].contentRect.width);if(width>0&&width!==priorWidth){priorWidth=width;if(current)chart(current);}}).observe($('assetChart'));}
@@ -155,7 +155,7 @@ function route() {
   $('reportControls').hidden = !['overview','income'].includes(key);
   $('export').hidden = key !== 'income';
   if (key === 'overview' && member !== '全家') { member = '全家'; document.querySelectorAll('[data-member]').forEach(b => b.classList.toggle('active',b.dataset.member === '全家')); render(); }
-  document.title = `家有数 · ${pageInfo[key][0]}${D.live?'':'（演示）'}`;
+  document.title='家有数';
   window.scrollTo(0,0);
   if(key==='settings'&&D.live)loadFx();
 }
