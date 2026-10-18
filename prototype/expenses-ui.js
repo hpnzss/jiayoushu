@@ -39,21 +39,22 @@
     catch(e){$('monthlyExpenseStatus').textContent=e.message;}
     finally{$('saveMonthlyExpense').disabled=false;}
   };
-  function renderExpenses(r){
+  function renderExpenses(overview){
+    const r=FamilyPanelFilters.report('expense-summary');
     if(D.live&&!initialized){initialized=true;loadMonth();}
     lastReport=r;const e=r.familyExpense;
     memberTotals.replaceChildren();for(const b of e.byMember){const a=document.createElement('article'),label=document.createElement('span'),value=document.createElement('strong');label.textContent=(b.name==='共同'?'未拆分家庭总额':memberName(b.name))+' · 期间已录支出';value.textContent=money(b.cents);a.append(label,value);memberTotals.append(a);}
     const amount=e.hasData?e.unresolved.length?'部分总额无法拆分':money(e.cents):'尚未记录',net=e.cents===null?'—':signed(r.familyIncome-e.cents);
-    $('overviewExpense').textContent=$('reportExpense').textContent=amount;$('overviewNet').textContent=$('reportNet').textContent=net;
+    $('reportExpense').textContent=amount;$('reportNet').textContent=net;const oe=overview.familyExpense;$('overviewExpense').textContent=oe.hasData?oe.unresolved.length?'部分总额无法拆分':money(oe.cents):'尚未记录';$('overviewNet').textContent=oe.cents===null?'—':signed(overview.familyIncome-oe.cents);
     let note=e.unresolved.length?`有${e.unresolved.length}份月总额被筛选边界截断，无法精确拆分。可定位小计${money(e.knownCents)}，不是完整区间合计。`:e.hasData?'仅统计已填写月份及其截止日；未填月份不视为0。月总额已包含手续费，不会再次叠加转账手续费。':'尚未填写月度支出，不按0元计算结余。每月录入一个家庭总额即可。';
     if(e.rows.some(x=>x.legacy))note+=' 此范围包含旧版成员总额，可在每月支出中核对并统一为家庭总额。';
     if(e.legacyDetails)note+=' 旧版逐笔记录未纳入新版月总额，请核对后补填对应月份。';
-    $('overviewExpenseNote').textContent=$('expenseReportNote').textContent=note;
+    $('expenseReportNote').textContent=note;$('overviewExpenseNote').textContent=oe.unresolved.length?'所选概况范围截断了月支出，无法精确拆分。':'按概况板块的日期汇总；未填写月份不当作0。';
     const months=new Map();
     for(const row of D.reportingIncomes().filter(x=>x.date>=r.start&&x.date<=r.end&&(!x.historical||(FamilyHistoryPeriod.contains(x,r.start,r.end)&&FamilyHistoryPeriod.fits(x,'month'))))){const key=row.date.slice(0,7);if(!months.has(key))months.set(key,{income:0,expense:null});months.get(key).income+=row.cents;}
     for(const row of e.rows){const key=row.month;if(!months.has(key))months.set(key,{income:0,expense:null});months.get(key).expense=(months.get(key).expense||0)+row.cents;}
     const maximum=Math.max(...[...months.values()].flatMap(x=>[Math.abs(x.income),Math.abs(x.expense||0)]),1);
-    $('cashflowBars').innerHTML=[...months].sort(([a],[b])=>a.localeCompare(b)).map(([key,v])=>`<div class="cashflow-month"><strong>${key}</strong><div><span>家庭收入 ${money(v.income)}</span><div class="track"><div class="fill" style="width:${Math.abs(v.income)/maximum*100}%"></div></div><span>家庭支出 ${v.expense===null?'未填写或无法拆分':money(v.expense)}</span>${v.expense===null?'':`<div class="track"><div class="fill" style="width:${Math.abs(v.expense)/maximum*100}%;background:#b17d4b"></div></div>`}</div></div>`).join('')||'<p class="muted">录入收入或月度支出后显示对比。</p>';
+    $('cashflowBars').innerHTML=[...months].sort(([a],[b])=>a.localeCompare(b)).map(([key,v])=>`<div class="cashflow-month" tabindex="0" title="${key} · 家庭收入 ${money(v.income)} · 家庭支出 ${v.expense===null?'未填写或无法拆分':money(v.expense)}"><strong>${key}</strong><div><span>家庭收入 <b class="chart-number">${money(v.income)}</b></span><div class="track"><div class="fill" style="width:${Math.abs(v.income)/maximum*100}%"></div></div><span>家庭支出 ${v.expense===null?'未填写或无法拆分':'<b class="chart-number">'+money(v.expense)+'</b>'}</span>${v.expense===null?'':`<div class="track"><div class="fill" style="width:${Math.abs(v.expense)/maximum*100}%;background:#b17d4b"></div></div>`}</div></div>`).join('')||'<p class="muted">录入收入或月度支出后显示对比。</p>';
     $('expenseReportRows').innerHTML=e.rows.map(row=>`<tr><td>${row.month}</td><td>${row.through}</td><td class="right">${money(row.cents)}</td><td>${escapeHTML((row.breakdown||[]).map(b=>memberName(b.member)+' '+money(b.cents)).join('；')+(row.memo?' · '+row.memo:''))}${row.legacy?'（旧版总额）':''}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">此范围暂无可完整计入的月度支出</td></tr>';
     $('savedExpenseMonths').replaceChildren();
     const monthsSaved=[...new Set((D.expenseSummaries||[]).map(s=>s.month))].sort().reverse();
@@ -68,5 +69,5 @@
     const rows=[['家庭月度支出',r.start,r.end,e.unresolved.length?'部分总额无法拆分，仅导出可完整定位月份':'仅含已填月份'],['月份','截止日','人民币净支出','备注'],...e.rows.map(x=>[x.month,x.through,(x.cents/100).toFixed(2),x.memo||''])];
     download(`家庭支出_${r.start}_${r.end}.csv`,'\uFEFF'+rows.map(x=>x.map(csv).join(',')).join('\r\n'),'text/csv;charset=utf-8');
   };
-  globalThis.ExpenseUI={render:renderExpenses};loadMonth();if(current)renderExpenses(current);
+  globalThis.ExpenseUI={render:renderExpenses,get lastReport(){return lastReport;}};loadMonth();if(current)renderExpenses(current);
 })();

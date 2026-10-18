@@ -2,7 +2,13 @@
 
 供家庭使用的收支与资产管理网页，使用手机或电脑浏览器访问，可部署到群晖 Docker。
 
-当前版本：**0.13.0-preview**（开发预览）。镜像仓库：[hpnzss/jiayoushu](https://hub.docker.com/r/hpnzss/jiayoushu)。普通分支推送和PR运行测试；版本标签或main上的手动发布通过检查后更新 `preview`。每次发布还提供 commit 标签和固定版本 `0.13.0-preview`。发布状态见 [GitHub Actions](https://github.com/hpnzss/jiayoushu/actions)。
+当前版本：**0.14.0-preview**（开发预览）。镜像仓库：[hpnzss/jiayoushu](https://hub.docker.com/r/hpnzss/jiayoushu)。普通分支推送和PR运行测试；版本标签或main上的手动发布通过检查后更新 `preview`。每次发布还提供 commit 标签和固定版本 `0.14.0-preview`。发布状态见 [GitHub Actions](https://github.com/hpnzss/jiayoushu/actions)。
+
+## 本次更新
+
+- 各统计板块独立时间范围，快捷按钮及自选起止日期直接展开；手机自动换行。
+- 图表可独立开关数字标注，资产柱图使用万/亿简写，明细保留完整金额。
+- 历史收入及公积金可早于账户纳入日期补录；计入收入统计，不重复增加期初余额，不生成虚假的历史资产点。
 
 ## 功能
 
@@ -49,7 +55,7 @@ iPhone通过Safari添加到主屏幕时，登录页及所有子页面共用名�
 
 ## 部署
 
-详见 [安装、升级与备份](INSTALL.md)。示例 compose 默认使用 Docker Hub 的 `preview` 镜像；需要固定本版可改为 `hpnzss/jiayoushu:0.13.0-preview`。
+详见 [安装、升级与备份](INSTALL.md)。示例 compose 默认使用 Docker Hub 的 `preview` 镜像；需要固定本版可改为 `hpnzss/jiayoushu:0.14.0-preview`。
 
 需要从源码运行时，安装 Node.js 24 后运行：
 

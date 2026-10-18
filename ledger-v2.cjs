@@ -25,7 +25,7 @@ function normalize(input,accounts=defaults,quote=null,memberKeys=members){
     if(!r||!['income','expense','transfer','balance'].includes(r.type)||!validDate(r.date))throw Error(`第${i+1}条类型或日期无效。`);
     if(r.date>today)throw Error('实际账本不能记录未来日期，请在实际发生后录入。');
     const a=byId.get(r.account);if(!a)throw Error('账户不存在，请从当前账户清单选择。');if(a.archivedAt)throw Error('账户已归档，请先恢复使用。');
-    if(r.date<a.startDate)throw Error('记录日期早于账户纳入账本的日期。');
+    if(r.type!=='income'&&r.date<a.startDate)throw Error('记录日期早于账户纳入账本的日期。');
     if(input.version===1&&a.currency!=='CNY')throw Error('外币账户需要第2版导入格式。');
     const row={type:r.type,date:r.date,account:r.account,cents:amount(r.amount,r.type==='balance')};
     if(r.fxPolicy!==undefined&&(r.fxPolicy!=='latest'||r.type!=='balance'))throw Error('最新汇率折算仅用于余额或估值核对。');
@@ -69,15 +69,19 @@ function project(rows,accounts=defaults){
   const sorted=rows.slice().sort((a,b)=>a.date.localeCompare(b.date)||eventTime(a).localeCompare(eventTime(b))||(!a.time&&!a.projectionTime&&!b.time&&!b.projectionTime?priority(a.type)-priority(b.type):a.batchKey&&b.batchKey&&a.batchKey!==b.batchKey?a.order-b.order:priority(a.type)-priority(b.type))||a.order-b.order);
   const values=Object.fromEntries(accounts.map(a=>[a.id,null])),confirmed=Object.fromEntries(accounts.map(a=>[a.id,null])),rates={},updated={};
   const snapshots=[],adjustments=[],finalAt={};
+  // Pre-opening income belongs in income history, but is already covered by
+  // the authoritative opening balance. It must not create asset snapshots.
+  const starts=new Map(accounts.map(a=>[a.id,a.startDate]));
+  const events=sorted.filter(e=>e.type!=='income'||e.date>=starts.get(e.account));
   const revalue=()=>accounts.map(a=>values[a.id]===null?null:a.currency==='CNY'?values[a.id]:rates[a.id]?convert(values[a.id],rates[a.id].rate):null);
-  for(let i=0;i<sorted.length;i++){
-    const e=sorted[i];
+  for(let i=0;i<events.length;i++){
+    const e=events[i];
     function change(id,n,fx){if(values[id]!==null)values[id]=safe(BigInt(values[id])+BigInt(n));if(fx)rates[id]=fx;updated[id]=e.date;finalAt[id]=null;}
     if(e.type==='income')change(e.account,e.cents,e.fx);
     if(e.type==='expense'&&e.affectsBalance)change(e.account,(e.refund?1:-1)*e.cents,e.fx);
     if(e.type==='transfer'){change(e.account,-e.cents-e.feeCents,e.fx);change(e.target,e.targetCents??e.cents,e.targetFx);}
     if(e.type==='balance'||e.type==='opening'){adjustments.push({date:e.date,account:e.account,cents:values[e.account]===null?null:e.cents-values[e.account],currency:accounts.find(a=>a.id===e.account)?.currency||'CNY'});values[e.account]=e.cents;confirmed[e.account]=e.date;finalAt[e.account]=e.type==='balance'?e.date:null;if(e.fx)rates[e.account]=e.fx;updated[e.account]=e.date;}
-    if(i===sorted.length-1||sorted[i+1].date!==e.date){
+    if(i===events.length-1||events[i+1].date!==e.date){
       const amounts=revalue().map((v,j)=>e.date<accounts[j].startDate?0:v),complete=amounts.every(v=>v!==null);
       if(complete)safe(amounts.reduce((s,v)=>s+BigInt(v),0n));
       snapshots.push({date:e.date,amounts,confirmed:{...confirmed},complete,kind:complete&&accounts.every(a=>a.startDate>e.date||finalAt[a.id]===e.date)?'confirmed':'estimated'});

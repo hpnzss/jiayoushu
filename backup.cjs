@@ -42,7 +42,7 @@ function business(tables){
   }
   const available=new Map([...accounts,...[...assets].filter(([,a])=>a.kind!=='rsu').map(([key,a])=>[key,{...a,startDate:'2000-01-01'}])]);
   const byBatch=new Map();
-  for(const row of tables.records){const r=JSON.parse(row.payload);need(plain(r)&&['opening','income','transfer','balance','expense'].includes(r.type)&&validDate(r.date)&&available.has(r.account));number(r.cents);need(r.date>=available.get(r.account).startDate);if(r.time!==undefined)need(/^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(r.time));if(r.memo!==undefined)text(r.memo);
+  for(const row of tables.records){const r=JSON.parse(row.payload);need(plain(r)&&['opening','income','transfer','balance','expense'].includes(r.type)&&validDate(r.date)&&available.has(r.account));number(r.cents);need(r.type==='income'||r.date>=available.get(r.account).startDate);if(r.time!==undefined)need(/^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(r.time));if(r.memo!==undefined)text(r.memo);
     if(r.quantity!==undefined||r.price!==undefined)need(safe((scaled(r.quantity,6)*scaled(r.price,6)+5000000000n)/10000000000n)===r.cents,'持仓数量、单价与总价值不一致。');
     const currency=available.get(r.account).currency;need(!r.currency||r.currency===currency);if(currency!=='CNY'||r.fx)fx(r.fx,r.date,currency,r.type==='balance');
     if(r.type==='income'){need(validMember(r.member)&&r.member!=='共同'&&r.cents>0);text(r.source,80);need(r.source.trim());need(!hasHistoricalIncome(r),'备份中历史汇总与逐笔收入期间重叠，不能重复统计。');}

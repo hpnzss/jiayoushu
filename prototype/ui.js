@@ -9,6 +9,7 @@ const escapeHTML = value => String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<
 const memberName=key=>D.memberName?D.memberName(key):key;
 let mode = 'year', member = '全家', current;
 function preset() {
+  if(window.FamilyPanelFilters){render();return;}
   const p = $('period');
   if (mode === 'month') {
     if (!p.value) return;
@@ -26,25 +27,25 @@ function preset() {
   render();
 }
 function render() {
-  try { current = D.report($('start').value, $('end').value, member); $('error').textContent = ''; }
+  try { current = FamilyPanelFilters.report('income-details',member); $('error').textContent = ''; }
   catch (e) { $('error').textContent = e.message; $('export').disabled = $('chartExport').disabled = true; return; }
   $('export').disabled = $('chartExport').disabled = false;
-  const r = current;
+  const r = FamilyPanelFilters.report('overview-metrics'),summary=FamilyPanelFilters.report('income-summary'),compositionReport=FamilyPanelFilters.report('income-composition');
   $('range').textContent = `${r.start} — ${r.end}${r.end === D.today ? (D.live ? ' · 截至今日' : ' · 截至演示数据日') : ''}`;
   $('assetValue').textContent = r.closing ? money(D.total(r.closing)) : '资料不足';
   $('assetDate').textContent = r.closing ? `${r.closing.historical?'历史家庭总额':r.closing.kind==='estimated'?'部分盘点或流水推算':'完整盘点'}：${r.closing.date}${r.closing.date < r.end ? ' · 沿用历史记录' : ''}` : '资料不足：请先确认每个账户的初始余额';
   $('deltaValue').textContent = signed(r.delta);
   $('openingDate').textContent = r.opening ? `期初参考：${r.opening.date}` : '缺少开始日前的资产记录';
-  $('incomeTitle').textContent = `期间${member === '全家' ? '家庭' : memberName(member)}收入`;
+  $('incomeTitle').textContent = '期间家庭收入';
   $('incomeValue').textContent = money(r.income);
-  $('reportIncomeLabel').textContent = `期间${member === '全家' ? '家庭' : memberName(member)}收入`;
-  $('reportIncomeValue').textContent = money(r.income);
+  $('reportIncomeLabel').textContent = '期间家庭收入';
+  $('reportIncomeValue').textContent = money(summary.income);
   incomeTrend(r);
   $('gapValue').textContent = signed(r.gap);
-  chart(r);
+  chart(FamilyPanelFilters.report('asset-trend'));
   globalThis.FamilyIncomeComposition?.render();
   const sources = Object.create(null);
-  r.rows.forEach(x => {const category=x.category==='其他'?x.source:x.category||FamilyClient.incomeCategory(x.source);sources[category]=(sources[category]||0)+x.cents;});
+  compositionReport.rows.forEach(x => {const category=x.category==='其他'?x.source:x.category||FamilyClient.incomeCategory(x.source);sources[category]=(sources[category]||0)+x.cents;});
   $('sources').innerHTML = Object.keys(sources).length ? '<div class="source-chips">' + Object.entries(sources).map(([k,v]) => `<span class="chip">${escapeHTML(k)} ${money(v)}</span>`).join('') + '</div>' : '<p class="muted">所选区间没有收入记录。</p>';
   const latest = D.snapshots.at(-1);
   $('distributionDate').textContent = D.live?'当前账面余额；未确认初始余额的账户显示“资料不足”':`采用 ${latest.date} 的完整盘点，与报告筛选独立`;
@@ -52,23 +53,24 @@ function render() {
   const total = balances.every(b=>b.cents!==null)?balances.reduce((s,b)=>s+b.cents,0):null;
   $('distribution').innerHTML = total>0 && balances.every(b=>b.cents>=0)?'<div class="stack">' + balances.map((b,i) => `<span style="width:${b.cents / total * 100}%;background:${colors[i%colors.length]}" title="${escapeHTML(b.name)} ${money(b.cents)}"></span>`).join('') + '</div>':'';
   $('accountRows').innerHTML = balances.map((b,i) => `<div class="account-row"><div><span class="dot" style="background:${colors[i%colors.length]}"></span>${escapeHTML(b.name)}<small>${escapeHTML(memberName(b.owner))} · ${b.confirmedDate?'最近确认 '+b.confirmedDate:'初始余额待确认'}${b.currency?' · '+escapeHTML(b.currency):''}</small>${b.currency&&b.currency!=='CNY'?`<small>${nativeMoney(b.nativeCents,b.currency)} · 汇率日 ${b.fx?.date||'未知'}</small>`:''}</div><div>${money(b.cents)}<small>${total>0?(b.cents/total*100).toFixed(1)+'%':'尚无完整占比'}</small></div></div>`).join('');
-  $('rowCount').textContent = `${member} · ${r.rows.length} 笔`;
-  $('incomeRows').innerHTML = r.rows.length ? r.rows.slice().reverse().map(x => `<tr><td>${x.historical?FamilyHistoryPeriod.label(x):x.date}</td><td>${escapeHTML(memberName(x.member))}</td><td>${escapeHTML(x.source)}</td><td>${escapeHTML((x.historical?'历史汇总（不关联账户）':D.accounts.find(a => a.id === x.account)?.name||'未知账户'))}</td><td class="right">${money(x.cents)}${x.nativeCents!==undefined?`<small class="muted" style="display:block">${nativeMoney(x.nativeCents,x.currency)} · 汇率日 ${x.fx.date}</small>`:''}</td></tr>`).join('') : '<tr><td colspan="5" class="empty">所选区间没有收入记录</td></tr>';
+  $('rowCount').textContent = `${member} · ${current.rows.length} 笔`;
+  $('incomeRows').innerHTML = current.rows.length ? current.rows.slice().reverse().map(x => `<tr><td>${x.historical?FamilyHistoryPeriod.label(x):x.date}</td><td>${escapeHTML(memberName(x.member))}</td><td>${escapeHTML(x.source)}</td><td>${escapeHTML((x.historical?'历史汇总（不关联账户）':D.accounts.find(a => a.id === x.account)?.name||'未知账户'))}</td><td class="right">${money(x.cents)}${x.nativeCents!==undefined?`<small class="muted" style="display:block">${nativeMoney(x.nativeCents,x.currency)} · 汇率日 ${x.fx.date}</small>`:''}</td></tr>`).join('') : '<tr><td colspan="5" class="empty">所选区间没有收入记录</td></tr>';
   globalThis.ExpenseUI?.render(r);
   globalThis.FamilyWorkflow?.renderReportStatus(r);globalThis.FamilyDashboard?.render();globalThis.FamilyHistory?.renderStatus(r);
 }
 const assetViewport={signature:null,window:null,points:[],amountAll:false};
 function chart(r) {
+  assetViewport.report=r;
   const allPoints = [...(r.opening ? [r.opening] : []), ...r.points].filter(p=>!(D.hiddenSnapshotDates||[]).includes(p.date));
   const signature=r.start+'|'+r.end+'|'+allPoints.length;if(signature!==assetViewport.signature){assetViewport.signature=signature;assetViewport.window=null;window.FamilyAssetNavigation?.reset();}assetViewport.points=allPoints;
   const pts=assetViewport.window?allPoints.slice(assetViewport.window[0],assetViewport.window[1]+1):allPoints;
   window.FamilyAssetNavigation?.update();
   if (!pts.length) { $('assetChart').innerHTML = '<div class="empty">此区间及此前没有可用资产记录</div>'; $('chartNote').textContent = ''; return; }
   const measuredWidth=$('assetChart').getBoundingClientRect().width;if(!measuredWidth)return;
-  const w = assetViewport.amountAll?Math.max(280,Math.round(measuredWidth),pts.length*110+80):Math.max(280,Math.round(measuredWidth)), h = measuredWidth<520?240:280, left = 64, right = 16, top = 20, bottom = 34;
+  const w = (assetViewport.amountAll&&FamilyPanelFilters.numbers('asset-trend'))?Math.max(280,Math.round(measuredWidth),pts.length*110+80):Math.max(280,Math.round(measuredWidth)), h = measuredWidth<520?240:280, left = 64, right = 16, top = 20, bottom = 34;
   const vals=pts.map(D.total),axis=window.FamilyAssetNavigation?.scale(vals)||FamilyChartAxis.scale(vals),low=axis.min,high=axis.max;
   const firstTime = Date.parse(pts[0].date), lastTime = Date.parse(pts.at(-1).date);
-  const x = i => firstTime === lastTime ? (w + left) / 2 : assetViewport.amountAll?left+i*(w-left-right)/Math.max(pts.length-1,1):left + (Date.parse(pts[i].date) - firstTime) / (lastTime - firstTime) * (w-left-right);
+  const x = i => firstTime === lastTime ? (w + left) / 2 : (assetViewport.amountAll&&FamilyPanelFilters.numbers('asset-trend'))?left+i*(w-left-right)/Math.max(pts.length-1,1):left + (Date.parse(pts[i].date) - firstTime) / (lastTime - firstTime) * (w-left-right);
   const y = v => top + (high - v) / (high-low) * (h-top-bottom);
   let content = `<rect width="${w}" height="${h}" fill="transparent"/>`;
   for(const v of axis.ticks) { const yy = y(v); content += `<line x1="${left}" y1="${yy}" x2="${w-right}" y2="${yy}" stroke="#e8ede3"/><text x="${left-12}" y="${yy+4}" text-anchor="end" fill="#718078" font-size="11">${Math.abs(v)>=1000000?(v/1000000).toLocaleString('zh-CN',{maximumFractionDigits:4})+'万':(v/100).toLocaleString('zh-CN',{maximumFractionDigits:2})}</text>`; }
@@ -76,11 +78,11 @@ function chart(r) {
   for(let i=1;i<pts.length;i++) content += `<line x1="${x(i-1)}" y1="${y(vals[i-1])}" x2="${x(i)}" y2="${y(vals[i])}" stroke="var(--accent,#24634e)" stroke-width="2" ${i === 1 && r.opening ? 'stroke-dasharray="6 5"' : ''}/>`;
   let lastLabelX=-Infinity;
   pts.forEach((p,i) => { content += `<circle cx="${x(i)}" cy="${y(vals[i])}" r="3" fill="${i===0 && r.opening ? '#c6a55d' : '#24634e'}" stroke="var(--surface,white)" stroke-width="1.5"><title>${p.date} ${money(vals[i])}${i===0 && r.opening ? '（期初参考）' : p.historical?'（历史家庭总额）':''}</title></circle>`; if((x(i)-lastLabelX>=100&&x(pts.length-1)-x(i)>=80)||i===pts.length-1){lastLabelX=x(i);content += `</g><text x="${x(i)}" y="${h-12}" text-anchor="${i===0 ? 'start' : i===pts.length-1 ? 'end' : 'middle'}" fill="#718078" font-size="11">${lastTime-firstTime>366*86400000?p.date.slice(0,7):p.date.slice(5)}</text><g clip-path="url(#asset-plot-clip)">`;} });
-  const valuePoints=pts.map((p,i)=>({x:x(i),y:y(vals[i]),text:FamilyChartLabels.money(vals[i]),color:'var(--accent)',family:true,last:i===pts.length-1}));content+='</g>'+FamilyChartLabels.lineSVG(valuePoints,{left:left+2,right:w-right-2,top:4,bottom:h-bottom-3,all:assetViewport.amountAll});$('assetChart').classList.toggle('all-amounts',assetViewport.amountAll); $('assetChart').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" style="${assetViewport.amountAll?'width:'+w+'px;max-width:none;height:'+h+'px':''}" role="img" aria-label="${r.start} 至 ${r.end} 家庭资产趋势，金额单位人民币元"><title>家庭资产趋势 ${r.start} 至 ${r.end}（${D.live?'本机账本':'演示数据'}）</title>${content}</svg>`;
+  const valuePoints=pts.map((p,i)=>({x:x(i),y:y(vals[i]),text:FamilyChartLabels.money(vals[i]),color:'var(--accent)',family:true,last:i===pts.length-1}));content+='</g>'+FamilyChartLabels.lineSVG(valuePoints,{left:left+2,right:w-right-2,top:4,bottom:h-bottom-3,all:(assetViewport.amountAll&&FamilyPanelFilters.numbers('asset-trend'))});$('assetChart').classList.toggle('all-amounts',(assetViewport.amountAll&&FamilyPanelFilters.numbers('asset-trend'))); $('assetChart').innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" style="${(assetViewport.amountAll&&FamilyPanelFilters.numbers('asset-trend'))?'width:'+w+'px;max-width:none;height:'+h+'px':''}" role="img" aria-label="${r.start} 至 ${r.end} 家庭资产趋势，金额单位人民币元"><title>家庭资产趋势 ${r.start} 至 ${r.end}（${D.live?'本机账本':'演示数据'}）</title>${content}</svg>`;
   $('chartNote').textContent = `${r.points.length} 个区间内记录${r.opening ? `，期初参考 ${r.opening.date}` : '，无期初参考'}。金额直接标注；密集时可放大或选择“全部金额”横向滑动（按记录点等距展开）。${D.live?'历史家庭总额为独立记录点，不代表各银行卡余额；其余点可能沿用旧盘点或由流水推算。连线不代表两点间每日资产。':'连线仅帮助阅读，不代表两点之间的每日实际余额。'}`;
 }
-window.addEventListener('hashchange',()=>requestAnimationFrame(()=>{if(current)chart(current);}));
-if(typeof ResizeObserver!=='undefined'){let priorWidth=0;new ResizeObserver(entries=>{const width=Math.round(entries[0].contentRect.width);if(width>0&&width!==priorWidth){priorWidth=width;if(current)chart(current);}}).observe($('assetChart'));}
+window.addEventListener('hashchange',()=>requestAnimationFrame(()=>{if(assetViewport.report)chart(assetViewport.report);}));
+if(typeof ResizeObserver!=='undefined'){let priorWidth=0;new ResizeObserver(entries=>{const width=Math.round(entries[0].contentRect.width);if(width>0&&width!==priorWidth){priorWidth=width;if(assetViewport.report)chart(assetViewport.report);}}).observe($('assetChart'));}
 function download(name, body, type) {
   const url = URL.createObjectURL(new Blob([body], { type }));
   const a = document.createElement('a'); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -120,7 +122,7 @@ $('export').onclick = () => {
 };
 $('chartExport').onclick = () => {
   const svg = $('assetChart').querySelector('svg');
-  if (svg) download(`家庭资产趋势_${current.start}_${current.end}.svg`, svg.outerHTML, 'image/svg+xml;charset=utf-8');
+  if (svg) download(`家庭资产趋势_${assetViewport.report.start}_${assetViewport.report.end}.svg`, svg.outerHTML, 'image/svg+xml;charset=utf-8');
 };
 document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => {
   mode = b.dataset.mode;
@@ -154,7 +156,7 @@ function route() {
   document.querySelectorAll('[data-route]').forEach(a => { const active = a.dataset.route === key; a.classList.toggle('active',active); if(active) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   $('pageEyebrow').textContent = 'FAMILY FINANCE / ' + pageInfo[key][0];
   $('pageTitle').textContent = pageInfo[key][1]; $('pageSubtitle').textContent = pageInfo[key][2];
-  $('reportControls').hidden = !['overview','income'].includes(key);
+  $('reportControls').hidden = true;
   $('export').hidden = key !== 'income';
   if (key === 'overview' && member !== '全家') { member = '全家'; document.querySelectorAll('[data-member]').forEach(b => b.classList.toggle('active',b.dataset.member === '全家')); render(); }
   document.title='家有数';
