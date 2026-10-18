@@ -21,8 +21,8 @@ function normalize(input,accounts=defaults,quote=null,memberKeys=members){
   const byId=new Map(accounts.map(a=>[a.id,a])),keys=new Set();
   const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Shanghai'}).format(new Date());
   const rows=input.records.map((r,i)=>{
-    if(r?.type==='expense')throw Error('第一版不支持逐笔支出，请在“每月支出”中填写家庭月度总额。');
-    if(!r||!['income','expense','transfer','balance'].includes(r.type)||!validDate(r.date))throw Error(`第${i+1}条类型或日期无效。`);
+    if(r?.type==='expense')throw Error('本软件只记录收入、转账和资产，不支持支出录入。');
+    if(!r||!['income','transfer','balance'].includes(r.type)||!validDate(r.date))throw Error(`第${i+1}条类型或日期无效。`);
     if(r.date>today)throw Error('实际账本不能记录未来日期，请在实际发生后录入。');
     const a=byId.get(r.account);if(!a)throw Error('账户不存在，请从当前账户清单选择。');if(a.archivedAt)throw Error('账户已归档，请先恢复使用。');
     if(r.type!=='income'&&r.date<a.startDate)throw Error('记录日期早于账户纳入账本的日期。');
@@ -37,13 +37,8 @@ function normalize(input,accounts=defaults,quote=null,memberKeys=members){
       row.member=r.member;row.source=r.source.trim();
       if(r.category!==undefined){if(!INCOME_CATEGORIES.includes(r.category))throw Error('请选择有效收入分类。');row.category=r.category;}
     }
-    if(r.type==='expense'){
-      if(![...members,'共同'].includes(r.member))throw Error('请选择支出归属。');
-      if(typeof r.category!=='string'||!r.category.trim()||r.category.length>40)throw Error('请填写支出分类（不超过40字）。');
-      if(r.affectsBalance!==undefined&&typeof r.affectsBalance!=='boolean'||r.refund!==undefined&&typeof r.refund!=='boolean')throw Error('支出余额标记和退款标记必须为布尔值。');
-      Object.assign(row,{member:r.member,category:r.category.trim(),refund:r.refund===true,affectsBalance:r.affectsBalance===true});
-    }
-    if(input.version===2){row.currency=a.currency;row.fx=r.fxPolicy==='latest'&&a.currency!=='CNY'?resolveLatestFx(a.currency,quote):resolveFx(a.currency,r.date,r.fx,quote);if(['income','expense'].includes(r.type))row.cnyCents=convert(row.cents,row.fx.rate);}
+
+    if(input.version===2){row.currency=a.currency;row.fx=r.fxPolicy==='latest'&&a.currency!=='CNY'?resolveLatestFx(a.currency,quote):resolveFx(a.currency,r.date,r.fx,quote);if(r.type==='income')row.cnyCents=convert(row.cents,row.fx.rate);}
     if(r.type==='transfer'){
       const b=byId.get(r.target);if(!b||b.id===a.id)throw Error('转入账户无效或与转出账户相同。');if(b.archivedAt)throw Error('转入账户已归档，请先恢复使用。');
       if(r.date<b.startDate)throw Error('转账日期早于转入账户纳入日期。');
@@ -72,13 +67,12 @@ function project(rows,accounts=defaults){
   // Pre-opening income belongs in income history, but is already covered by
   // the authoritative opening balance. It must not create asset snapshots.
   const starts=new Map(accounts.map(a=>[a.id,a.startDate]));
-  const events=sorted.filter(e=>e.type!=='income'||e.date>=starts.get(e.account));
+  const events=sorted.filter(e=>e.type!=='expense'&&(e.type!=='income'||e.date>=starts.get(e.account)));
   const revalue=()=>accounts.map(a=>values[a.id]===null?null:a.currency==='CNY'?values[a.id]:rates[a.id]?convert(values[a.id],rates[a.id].rate):null);
   for(let i=0;i<events.length;i++){
     const e=events[i];
     function change(id,n,fx){if(values[id]!==null)values[id]=safe(BigInt(values[id])+BigInt(n));if(fx)rates[id]=fx;updated[id]=e.date;finalAt[id]=null;}
     if(e.type==='income')change(e.account,e.cents,e.fx);
-    if(e.type==='expense'&&e.affectsBalance)change(e.account,(e.refund?1:-1)*e.cents,e.fx);
     if(e.type==='transfer'){change(e.account,-e.cents-e.feeCents,e.fx);change(e.target,e.targetCents??e.cents,e.targetFx);}
     if(e.type==='balance'||e.type==='opening'){adjustments.push({date:e.date,account:e.account,cents:values[e.account]===null?null:e.cents-values[e.account],currency:accounts.find(a=>a.id===e.account)?.currency||'CNY'});values[e.account]=e.cents;confirmed[e.account]=e.date;finalAt[e.account]=e.type==='balance'?e.date:null;if(e.fx)rates[e.account]=e.fx;updated[e.account]=e.date;}
     if(i===events.length-1||events[i+1].date!==e.date){
@@ -117,8 +111,6 @@ function openLedger(filename,{quote=()=>null,portfolioRecords=()=>[],memberKeys=
     }
     if(rows.some(r=>r.type==='balance'))warnings.push('盘点按发生时点校准；历史时间未填时视为日终，发生在盘点之后的流水会继续更新余额。');
     if(rows.some(r=>r.type==='transfer'&&r.currency!==r.targetCurrency))warnings.push('换汇两侧按实际扣款本金和实际到账记录；手续费另加在转出账户。参考折算差额不是新增收入。');
-    if(rows.some(r=>r.type==='expense'))warnings.push('逐笔支出按所选成员的月度口径汇总：总额模式不再叠加明细；退款冲减支出。仅统计的记录不改变账户余额。');
-    if(rows.some(r=>r.type==='expense'&&r.affectsBalance))warnings.push('已选择同步扣减／退回余额。若实际盘点已包含这笔钱，请改为仅统计，避免重复扣款。');
     return[...new Set(warnings)];
   }
   function preview(input){

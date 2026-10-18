@@ -42,14 +42,10 @@
     const income = selected.reduce((n, x) => n + x.cents, 0);
     const familyIncome = rows.reduce((n, x) => n + x.cents, 0);
     const delta = opening && closing ? total(closing) - total(opening) : null;
-    const E=typeof module!=='undefined'&&module.exports?require('./expenses-report.js'):root.FamilyExpenses;
-    const expense=E.report(api.records||[],api.expenseSummaries||[],start,end,member);
-    const familyExpense=member==='全家'?expense:E.report(api.records||[],api.expenseSummaries||[],start,end);
-    return { start, end, member, rows: selected, income, familyIncome, opening, closing, points, delta,expense,familyExpense,
+    return { start, end, member, rows: selected, income, familyIncome, opening, closing, points, delta,
       // 示例没有逐笔完整记录其他资产影响，故此值仅表示资产变化与收入的差额。
       partialHistory:api.history.some(x=>x.kind==='income'&&P.overlaps(x,{start,date:end})&&!P.contains(x,start,end)),
       historical:!!(opening?.historical||closing?.historical||rows.some(x=>x.historical)),
-      gap: delta === null||familyExpense.unresolved.length||opening?.historical||closing?.historical||rows.some(x=>x.historical) ? null : delta - familyIncome + familyExpense.knownCents,
       byMember: (api.members||['成员一','成员二']).filter(k=>api.memberProfiles?.find(p=>p.key===k)?.active!==false).map(name => ({ name, cents: rows.filter(x => x.member === name).reduce((n, x) => n + x.cents, 0) })) };
   }
   const api = { accounts, snapshots, incomes, total, report, history:[],today: '2026-10-15', live:false,
@@ -60,7 +56,8 @@
       snapshots.splice(0,snapshots.length,...state.snapshots.filter(s=>s.complete));
       incomes.splice(0,incomes.length,...state.incomes);
       api.balances=state.balances; api.allSnapshots=state.snapshots; api.records=state.records; api.adjustments=state.adjustments; api.live=true;
-      api.expenseSummaries=state.expenseSummaries||[];
+      // Legacy expense records are deliberately excluded from reporting.
+      api.records=(state.records||[]).filter(r=>r.type!=='expense');
       api.hiddenSnapshotDates=state.hiddenSnapshotDates||[];api.history=state.history||[];
       api.memberProfiles=state.memberProfiles||[];api.members=[...new Set([...(state.members||['成员一','成员二']),...state.incomes.map(r=>r.member)])];api.periods=state.periods||[];
       api.memberName=key=>key==='共同'?'共同':api.memberProfiles.find(p=>p.key===key)?.name||key;

@@ -8,7 +8,7 @@
  function load(){const key=storageKey();if(key===loadedKey)return;loadedKey=key;cache.clear();try{const data=JSON.parse(localStorage.getItem(key)||'{}');if(data&&typeof data==='object')for(const [id,value]of Object.entries(data))if(value&&typeof value==='object')cache.set(id,value);}catch{}}
  function save(){try{localStorage.setItem(loadedKey,JSON.stringify(Object.fromEntries(cache)));}catch{}}
  function pref(id){load();return cache.get(id)||{};}
- function earliest(){const dates=[R.today,...R.reportingIncomes().map(r=>r.start||r.month&&r.month+'-01'||r.date),...R.reportingSnapshots().map(r=>r.date),...(R.expenseSummaries||[]).map(r=>r.month+'-01')].filter(valid);return dates.sort()[0]||R.today;}
+ function earliest(){const dates=[R.today,...R.reportingIncomes().map(r=>r.start||r.month&&r.month+'-01'||r.date),...R.reportingSnapshots().map(r=>r.date)].filter(valid);return dates.sort()[0]||R.today;}
  function range(id){try{return resolve(pref(id).range||{preset:'all'},R.today,earliest());}catch{return resolve({preset:'all'},R.today,earliest());}}
  function report(id,member='全家'){const r=range(id);return R.report(r.start,r.end,member);}
  function update(id,patch,kind='range',notify=true){load();cache.set(id,{...pref(id),...patch});save();refresh();if(notify)document.dispatchEvent(new CustomEvent('family-panel-change',{detail:{id,kind}}));}
@@ -34,6 +34,6 @@
  }
  const incomeScopes=['income-summary','income-composition','income-details','reportIncomeLines','reportProvidentLines'];
  function batch(ids,spec){for(const id of ids)set(id,spec,false);document.dispatchEvent(new CustomEvent('family-panel-change',{detail:{id:'batch',kind:'range'}}));}
- Object.assign(api,{range,report,pref,update,set,numbers,refresh,mount,storageKey,earliest,showHistory:()=>batch([...incomeScopes,'asset-trend'],{preset:'all'}),openMonth:month=>{const end=new Date(Date.UTC(+month.slice(0,4),+month.slice(5),0)).toISOString().slice(0,10);batch([...incomeScopes,'expense-summary','expense-composition','reportExpenseLines'],{preset:'custom',start:month+'-01',end:end>R.today?R.today:end});}});
+ Object.assign(api,{range,report,pref,update,set,numbers,refresh,mount,storageKey,earliest,showHistory:()=>batch([...incomeScopes,'asset-trend'],{preset:'all'}),openMonth:month=>{const end=new Date(Date.UTC(+month.slice(0,4),+month.slice(5),0)).toISOString().slice(0,10);batch(incomeScopes,{preset:'custom',start:month+'-01',end:end>R.today?R.today:end});}});
  document.addEventListener('family-session-ready',refresh);document.addEventListener('family-ledger-ready',refresh);
 })(globalThis);

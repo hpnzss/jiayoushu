@@ -5,8 +5,8 @@ function save(records){const p=ledger.preview({format:'family-assets-import',ver
 (async()=>{try{
  const admin=await auth.setup({admin:{username:'admin',password:'1',confirmPassword:'1'}});assert.equal(ledger.registeredAccounts().length,0);
  const a=ledger.saveAccount({name:'我的工资卡',owner:admin.user.member,type:'银行卡',currency:'CNY',date:'2026-08-31',amount:'100'});
- save([{type:'income',date:'2026-09-15',account:a.id,member:admin.user.member,source:'工资',amount:'50'}]);expenses.save({requestId:'month-test-001',expectedRevision:0,month:'2026-09',through:'2026-09-30',amount:'20'});
- assert(!periods.review('2026-09').canClose);save([{type:'balance',date:'2026-09-30',account:a.id,amount:'130'}]);const r=periods.review('2026-09');assert(r.canClose);assert.equal(r.summary.netCents,3000);assert.equal(r.summary.deltaCents,3000);assert.equal(r.summary.unexplainedCents,0);
+ save([{type:'income',date:'2026-09-15',account:a.id,member:admin.user.member,source:'工资',amount:'50'}]);
+ assert(!periods.review('2026-09').canClose);save([{type:'balance',date:'2026-09-30',account:a.id,amount:'130'}]);const r=periods.review('2026-09');assert(r.canClose);assert.equal(r.summary.incomeCents,5000);assert(!("expenseCents" in r.summary));assert.equal(r.summary.deltaCents,3000);assert(!("unexplainedCents" in r.summary));
  assert.throws(()=>periods.finish({month:r.month,digest:r.digest,incomeConfirmed:false},admin.user));assert.throws(()=>periods.finish({month:r.month,digest:'stale',incomeConfirmed:true},admin.user));periods.finish({month:r.month,digest:r.digest,incomeConfirmed:true},admin.user);assert.throws(()=>periods.assertWritable(['2026-08-31']));assert.throws(()=>periods.assertWritable(['2026-09-10']));periods.assertWritable(['2026-10-01']);assert(!periods.review('2026-10').canClose);periods.reopen('2026-09');periods.assertWritable(['2026-09-10']);assert.equal(periods.list().length,0);
- console.log('月度流程测试通过：空白新账本、建立账户、收支与月末核对、关账检查、历史锁定、重开及差额计算。');
+ console.log('月度流程测试通过：空白新账本、建立账户、收入与月末核对、关账检查、历史锁定、重开及资产变化。');
 }finally{for(const s of [periods,ledger,portfolio,expenses,auth])s.close();if(path.dirname(root)===os.tmpdir())fs.rmSync(root,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});

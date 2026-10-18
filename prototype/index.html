@@ -4,7 +4,7 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>家有数</title><meta name="application-name" content="家有数"><meta name="apple-mobile-web-app-title" content="家有数"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="theme-color" content="#8b64e8"><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="stylesheet" href="style.css"><link rel="stylesheet" href="modern.css"><link rel="stylesheet" href="mobile.css">
-  <script defer src="mobile-shell.js"></script><script defer src="chart-axis.js"></script><script defer src="chart-labels.js"></script><script defer src="history-period.js"></script><script defer src="client-common.js"></script><script defer src="expenses-report.js"></script><script defer src="report.js"></script><script defer src="panel-filters.js"></script><script defer src="ui.js"></script><script defer src="expenses-ui.js"></script><script defer src="session-ui.js"></script><script defer src="backup-ui.js"></script><script defer src="account-catalog.js"></script><script defer src="monthly-ui.js"></script><script defer src="choices-ui.js"></script><script defer src="direct-ui.js"></script><script defer src="provident-ui.js"></script><script defer src="income-series.js"></script><script defer src="dashboard-ui.js"></script><script defer src="modern-ui.js"></script><script defer src="history-ui.js"></script><script defer src="maintenance-ui.js"></script><script defer src="income-options.js"></script><script defer src="income-charts.js"></script><script defer src="asset-navigation.js"></script><script defer src="income-composition.js"></script><script defer src="inline-actions.js"></script><script defer src="expense-composition.js"></script><script defer src="asset-distribution.js"></script><script defer src="table-sort.js"></script><script defer src="date-controls.js"></script><script defer src="panel-controls.js"></script>
+  <script defer src="mobile-shell.js"></script><script defer src="chart-axis.js"></script><script defer src="chart-labels.js"></script><script defer src="history-period.js"></script><script defer src="client-common.js"></script><script defer src="report.js"></script><script defer src="panel-filters.js"></script><script defer src="ui.js"></script><script defer src="asset-reminders.js"></script><script defer src="session-ui.js"></script><script defer src="backup-ui.js"></script><script defer src="account-catalog.js"></script><script defer src="monthly-ui.js"></script><script defer src="choices-ui.js"></script><script defer src="direct-ui.js"></script><script defer src="provident-ui.js"></script><script defer src="income-series.js"></script><script defer src="dashboard-ui.js"></script><script defer src="modern-ui.js"></script><script defer src="history-ui.js"></script><script defer src="maintenance-ui.js"></script><script defer src="income-options.js"></script><script defer src="income-charts.js"></script><script defer src="asset-navigation.js"></script><script defer src="income-composition.js"></script><script defer src="inline-actions.js"></script><script defer src="asset-distribution.js"></script><script defer src="table-sort.js"></script><script defer src="date-controls.js"></script><script defer src="panel-controls.js"></script>
 </head>
 <body>
 <aside class="sidebar">
@@ -31,31 +31,19 @@
     <article class="metric primary"><div>期末家庭资产 <span>家庭口径</span></div><strong id="assetValue"></strong><p id="assetDate"></p></article>
     <article class="metric"><div>期间资产变化</div><strong id="deltaValue"></strong><p id="openingDate"></p></article>
     <article class="metric"><div id="incomeTitle">期间家庭收入</div><strong id="incomeValue"></strong><p>按收入日期统计，内部转账不计入</p></article>
-    <article class="metric"><div>扣除已录收支后的差额</div><strong id="gapValue"></strong><p>家庭口径 · 未录事项、投资和汇率变化等，不等于投资收益</p></article>
   </section>
-  <div class="expense-kpis"><article><span>期间已录家庭支出</span><strong id="overviewExpense">尚未记录</strong></article><article><span>已录收入减支出</span><strong id="overviewNet">—</strong></article><p id="overviewExpenseNote">不要求每天记账，每月填总额也可以。</p></div>
   <div id="portfolioOverview" class="demo-notice" style="margin-top:18px" hidden></div>
   <section id="trend" class="panel trend"><div class="panel-head"><div><h2>家庭资产，随时间生长</h2><p>圆点为完整盘点记录；虚线起点为区间前参考值。</p></div><button id="chartExport" class="outline">导出图表 ↗</button></div><div id="assetChart" class="chart"></div><div id="chartNote" class="chart-note"></div></section>
-  <div class="quick-links"><a href="#entry">＋ 记录收入、支出或转账 <span>进入智能录入 →</span></a><a href="#assets">更新账户实际余额 <span>进入资产盘点 →</span></a><a href="#income">查看两人的收入 <span>进入收入统计 →</span></a></div>
+  <div class="quick-links"><a href="#entry">＋ 记录收入或转账 <span>进入智能录入 →</span></a><a href="#assets">更新账户实际余额 <span>进入资产盘点 →</span></a><a href="#income">查看家庭收入 <span>进入收入统计 →</span></a></div>
   </section>
   <section data-page="income" aria-label="收入统计" hidden>
     <div class="income-summary"><span id="reportIncomeLabel">期间家庭收入</span><strong id="reportIncomeValue"></strong><small>按收入日期汇总 · 不包含内部转账</small></div>
     <section class="panel"><div class="panel-head"><div><h2>收入随时间变化</h2><p id="incomeTrendNote"></p></div></div><div id="incomeTrend" class="income-trend"></div></section>
-    <article id="income" class="panel"><div class="panel-head"><div><h2>两个人的收入，一起看</h2><p>成员筛选只作用于收入；支出和资产始终按全家统计。</p></div></div><div class="segments compact" id="members"><button class="active" data-member="全家">全家</button><button data-member="成员一">成员一</button><button data-member="成员二">成员二</button></div><div id="memberBars"></div><div class="source-label">收入来源分布</div><div id="sources"></div></article>
+    <article id="income" class="panel"><div class="panel-head"><div><h2>两个人的收入，一起看</h2><p>成员筛选只作用于本板块收入明细，资产始终按家庭统计。</p></div></div><div class="segments compact" id="members"><button class="active" data-member="全家">全家</button><button data-member="成员一">成员一</button><button data-member="成员二">成员二</button></div><div id="memberBars"></div><div class="source-label">收入来源分布</div><div id="sources"></div></article>
   <section id="details" class="panel"><div class="panel-head"><div><h2>每一笔收入，都有来处</h2><p>收入归属、来源和到账账户分开记录。</p></div><span class="muted" id="rowCount"></span></div><div class="table-scroll"><table><thead><tr><th>日期</th><th>收入归属</th><th>来源</th><th>到账账户</th><th class="right">金额</th></tr></thead><tbody id="incomeRows"></tbody></table></div></section>
   </section>
   <section data-page="entry" aria-label="智能录入" hidden>
-    <article class="panel" id="monthlyExpensePanel"><div class="panel-head"><div><h2>每月支出 · 填一个总数就够了</h2><p>每个人各填一个月度支出净总额，家庭自动合计；不需要逐笔记录，也不用选择付款账户。</p></div><span class="status-tag">可选，不用开期</span></div>
-      <form id="monthlyExpenseForm" class="form-grid">
-        <label class="field">月份<input id="expenseMonth" type="month" required></label>
-        <label class="field" id="expenseTotalField">支出净总额（人民币，退款扣除后）<input id="expenseTotal" type="number" step="0.01" required placeholder="未填写与0元不同"></label>
-        <label class="field" id="expenseThroughField">这份总额统计到哪一天<input id="expenseThrough" type="date" required></label>
-        <label class="field full">备注<input id="expenseTotalMemo" maxlength="200" placeholder="如：微信、支付宝、银行卡已去重；退款已扣除，包含手续费"></label>
-        <p id="expenseModeNote" class="muted full"></p>
-        <button class="solid full" id="saveMonthlyExpense" type="submit">确认并保存月度支出</button>
-      </form><p id="monthlyExpenseStatus" class="muted" role="status"></p>
-    </article>
-    <article class="panel"><div class="panel-head"><div><h2>粘贴导入 · 无需 AI API</h2><p>把文字或截图发给聊天助手，按本软件的格式整理，再将结果粘贴到这里。</p></div><span class="status-tag" id="ledgerConnection">正在检查账本连接</span></div>
+<article class="panel"><div class="panel-head"><div><h2>粘贴导入 · 无需 AI API</h2><p>把文字或截图发给聊天助手，按本软件的格式整理，再将结果粘贴到这里。</p></div><span class="status-tag" id="ledgerConnection">正在检查账本连接</span></div>
       <div class="actions"><button class="outline" id="copyGuide">复制给聊天助手的格式说明</button><button class="outline" id="importExample">填入虚拟导入示例</button></div>
       <label class="field" style="margin-top:16px">导入数据（JSON）<textarea id="importText" rows="7" placeholder="粘贴助手返回的 JSON 数据，不是命令，也不需要进入 Docker 终端。"></textarea></label>
       <button class="solid" id="previewImport">检查并预览</button><p id="importMessage" role="status" class="muted"></p>
@@ -128,7 +116,7 @@
       <article class="panel"><div class="panel-head"><div><h2>更新一个账户的实际余额</h2><p>只更新选中的账户，其他账户不会清零。</p></div><span class="status-tag">试算</span></div><form id="balanceForm" class="form-grid"><label class="field full">盘点账户<select id="balanceAccount"></select></label><label class="field">盘点日期<input id="balanceDate" type="date" value="2026-10-15" min="2026-10-15" required></label><label class="field">实际余额（元）<input id="balanceAmount" type="number" min="0" step="0.01" required placeholder="填写截图上的金额"></label><button class="solid full" type="submit">查看校准试算</button></form><div id="balanceResult" class="empty" role="status">选择账户并填写余额，查看校准前后的差额。</div><p class="muted">此处以最新示例余额试算，不保存、不重算历史。历史补录和在途转账将在正式账本中接入。</p></article>
     </div>
     <article class="panel" id="assetHistory"><div class="panel-head"><div><h2>完整盘点历史</h2><p>每个日期都包含全部示例账户；日常部分更新将在正式版本中单独标记。</p></div></div><div class="table-scroll"><table><thead><tr><th>盘点日期</th><th>范围</th><th class="right">家庭总资产</th></tr></thead><tbody id="snapshotRows"></tbody></table></div></article>
-    <article class="panel"><div class="panel-head"><div><h2>账户流水</h2><p>收入、支出、转账和余额确认分别展示；换汇两边都保留原币实际金额。</p></div></div><div class="table-scroll"><table><thead><tr><th>日期</th><th>类型</th><th>账户／流向</th><th>原币金额与手续费</th><th>说明</th></tr></thead><tbody id="journalRows"></tbody></table></div></article>
+    <article class="panel"><div class="panel-head"><div><h2>账户流水</h2><p>收入、转账和余额确认分别展示；换汇两边都保留原币实际金额。</p></div></div><div class="table-scroll"><table><thead><tr><th>日期</th><th>类型</th><th>账户／流向</th><th>原币金额与手续费</th><th>说明</th></tr></thead><tbody id="journalRows"></tbody></table></div></article>
   </section>
   <section data-page="settings" aria-label="设置与备份" hidden>
     <article class="panel"><div class="panel-head"><div><h2>资金账户管理</h2><p>修改名称不会丢失原有记录。新账户必须填写纳入日期及初始余额；币种创建后固定。</p></div></div>

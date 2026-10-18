@@ -41,7 +41,6 @@ function render() {
   $('reportIncomeLabel').textContent = '期间家庭收入';
   $('reportIncomeValue').textContent = money(summary.income);
   incomeTrend(r);
-  $('gapValue').textContent = signed(r.gap);
   chart(FamilyPanelFilters.report('asset-trend'));
   globalThis.FamilyIncomeComposition?.render();
   const sources = Object.create(null);
@@ -55,7 +54,7 @@ function render() {
   $('accountRows').innerHTML = balances.map((b,i) => `<div class="account-row"><div><span class="dot" style="background:${colors[i%colors.length]}"></span>${escapeHTML(b.name)}<small>${escapeHTML(memberName(b.owner))} · ${b.confirmedDate?'最近确认 '+b.confirmedDate:'初始余额待确认'}${b.currency?' · '+escapeHTML(b.currency):''}</small>${b.currency&&b.currency!=='CNY'?`<small>${nativeMoney(b.nativeCents,b.currency)} · 汇率日 ${b.fx?.date||'未知'}</small>`:''}</div><div>${money(b.cents)}<small>${total>0?(b.cents/total*100).toFixed(1)+'%':'尚无完整占比'}</small></div></div>`).join('');
   $('rowCount').textContent = `${member} · ${current.rows.length} 笔`;
   $('incomeRows').innerHTML = current.rows.length ? current.rows.slice().reverse().map(x => `<tr><td>${x.historical?FamilyHistoryPeriod.label(x):x.date}</td><td>${escapeHTML(memberName(x.member))}</td><td>${escapeHTML(x.source)}</td><td>${escapeHTML((x.historical?'历史汇总（不关联账户）':D.accounts.find(a => a.id === x.account)?.name||'未知账户'))}</td><td class="right">${money(x.cents)}${x.nativeCents!==undefined?`<small class="muted" style="display:block">${nativeMoney(x.nativeCents,x.currency)} · 汇率日 ${x.fx.date}</small>`:''}</td></tr>`).join('') : '<tr><td colspan="5" class="empty">所选区间没有收入记录</td></tr>';
-  globalThis.ExpenseUI?.render(r);
+  globalThis.FamilyAssetReminders?.render();
   globalThis.FamilyWorkflow?.renderReportStatus(r);globalThis.FamilyDashboard?.render();globalThis.FamilyHistory?.renderStatus(r);
 }
 const assetViewport={signature:null,window:null,points:[],amountAll:false};
@@ -143,7 +142,7 @@ preset();
 const pageInfo = {
   overview: ['家庭总览','看见家庭的每一步积累。','家庭收入、资产与变化，一眼看清。'],
   entry: ['智能录入','把记录变得轻松一点。','文字、截图和手动填写，最后都由你确认。'],
-  income: ['收支统计','各自的努力，一起的积累。','收入、支出分别看，也能按月、按年和自选时间汇总。'],
+  income: ['收入统计','各自的努力，一起的积累。','查看成员与家庭收入，按月、按年和自选时间汇总。'],
   assets: ['资产盘点','钱在哪里，心里有数。','定期确认实际余额，让家庭资产更贴近真实情况。'],
   settings: ['设置与备份','为家庭数据留一份安心。','家庭成员、AI 服务和备份，在这里统一管理。']
 };
@@ -190,7 +189,7 @@ $('recordKind').onchange = () => {
   $('memberField').hidden=$('sourceField').hidden=kind!=='income';
   $('recordSource').required=kind==='income';
   $('targetField').hidden=kind!=='transfer';
-  $('accountLabel').textContent=kind==='transfer'?'转出账户':kind==='balance'?'盘点账户':kind==='expense'?'付款／退款账户':'到账账户';
+  $('accountLabel').textContent=kind==='transfer'?'转出账户':kind==='balance'?'盘点账户':'到账账户';
   $('amountLabel').textContent=kind==='balance'?'实际余额（元）':'金额（元）';
   $('recordAmount').min=kind==='balance'?'0':'0.01';
   updateRecordFields();
@@ -229,7 +228,7 @@ $('confirmDraft').onclick=async()=> {
     try{
       const result=await api('/api/import/commit',['portfolio','ledger-v2'].includes(pendingImport.kind)?{...pendingImport,acknowledgeDuplicate:$('duplicateAck')?.checked===true}:{data:pendingImport.data,digest:pendingImport.digest,acknowledgeDuplicate:$('duplicateAck')?.checked===true});
       draft=null; pendingImport=null; $('draftActions').hidden=true;
-      $('draftStatus').textContent=result.alreadyImported?'这个批次已经保存过，本次没有重复写入。':`已保存 ${result.count} 条记录。刷新后仍保留；收支统计和账户余额已更新。`;
+      $('draftStatus').textContent=result.alreadyImported?'这个批次已经保存过，本次没有重复写入。':`已保存 ${result.count} 条记录。刷新后仍保留；收入统计和账户余额已更新。`;
       await refreshLedger();
     }catch(e){$('draftStatus').textContent=e.message+' 可以重试，同一批次不会重复保存。';}
     finally{saving=false;$('confirmDraft').disabled=false;}
@@ -255,7 +254,7 @@ $('balanceForm').onsubmit=async event=>{
 };
 $('snapshotRows').innerHTML=D.snapshots.slice().reverse().map(s=>`<tr><td>${s.date}</td><td>全部 ${D.accounts.length} 个账户</td><td class="right">${money(D.total(s))}</td></tr>`).join('');
 $('aiProvider').onchange=()=> { $('providerNote').textContent=$('aiProvider').value==='OpenAI API'?'方案预览：正式接入需要 API 密钥与独立计费。当前未连接，也不会发送数据。':$('aiProvider').value==='其他兼容服务'?'方案预览：正式版本将支持配置服务地址与模型。当前未连接。':'目前不会发起任何 AI 请求；免费服务的模型效果与数据条款待核对。'; };
-$('backupExport').onclick=()=> download(D.live?'家有数_本机数据.json':'家有数_示例备份.json',JSON.stringify({format:D.live?'family-assets-local-export':'family-assets-demo',version:1,createdAt:new Date().toISOString(),accounts:D.accounts,incomes:D.incomes,snapshots:D.snapshots,confirmedDrafts,...(D.live?{records:D.records,adjustments:D.adjustments,expenseSummaries:D.expenseSummaries,portfolio:D.portfolio}: {})},null,2),'application/json;charset=utf-8');
+$('backupExport').onclick=()=> download(D.live?'家有数_本机数据.json':'家有数_示例备份.json',JSON.stringify({format:D.live?'family-assets-local-export':'family-assets-demo',version:1,createdAt:new Date().toISOString(),accounts:D.accounts,incomes:D.incomes,snapshots:D.snapshots,confirmedDrafts,...(D.live?{records:D.records,adjustments:D.adjustments,portfolio:D.portfolio}: {})},null,2),'application/json;charset=utf-8');
 $('backupImport').onchange=async()=>{
   const file=$('backupImport').files[0]; if(!file)return;
   if(file.size>2*1024*1024){$('backupStatus').textContent='文件超过原型检查范围（2 MB），未读取。';return;}
@@ -358,7 +357,7 @@ function updateRecordFields(){
   const accounts=D.legacyAccounts||D.accounts,a=accounts.find(a=>a.id===$('recordAccount').value),b=accounts.find(a=>a.id===$('targetAccount').value);
   const currency=a?.currency||'CNY',target=b?.currency||'CNY',transfer=$('recordKind').value==='transfer',cross=transfer&&currency!==target,manual=$('recordFxMode').value==='manual';
   $('recordFxMode').parentElement.hidden=currency==='CNY'&&(!transfer||target==='CNY');
-  $('amountLabel').textContent=($('recordKind').value==='balance'?'实际余额':transfer?'转出本金':$('recordKind').value==='expense'?'支出／退款金额':'收入金额')+`（${currency}）`;
+  $('amountLabel').textContent=($('recordKind').value==='balance'?'实际余额':transfer?'转出本金':'收入金额')+`（${currency}）`;
   $('targetAmountLabel').textContent=`实际到账金额（${target}）`;$('feeLabel').textContent=`另扣手续费（${currency}，不含在本金中）`;
   $('targetAmountField').hidden=!cross;$('recordTargetAmount').required=cross;$('feeField').hidden=!transfer;
   const sourceRate=manual&&currency!=='CNY',targetRate=manual&&transfer&&target!=='CNY'&&currency!==target,any=sourceRate||targetRate;
@@ -395,7 +394,7 @@ $('accountForm').onsubmit=async event=>{
   catch(e){$('accountStatus').textContent=e.message;}finally{$('saveAccount').disabled=false;}
 };
 function renderJournal(){
-  $('journalRows').replaceChildren();const rows=(D.records||[]).slice().sort((a,b)=>b.date.localeCompare(a.date)||(b.order||0)-(a.order||0));
+  $('journalRows').replaceChildren();const rows=(D.records||[]).filter(r=>r.type!=='expense').slice().sort((a,b)=>b.date.localeCompare(a.date)||(b.order||0)-(a.order||0));
   for(const r of rows){const row=document.createElement('tr'),account=D.accounts.find(a=>a.id===r.account),target=D.accounts.find(a=>a.id===r.target);const values=[r.date,{income:'收入',transfer:'转账／换汇',expense:r.refund?'退款':'支出',balance:'余额确认',opening:'初始余额'}[r.type],(account?.name||r.account)+(target?' → '+target.name:''),nativeMoney(r.cents,r.currency||account?.currency||'CNY')+(r.type==='transfer'?` → ${nativeMoney(r.targetCents??r.cents,r.targetCurrency||target?.currency||'CNY')}；另扣 ${nativeMoney(r.feeCents,r.currency||account?.currency||'CNY')}`:''),(r.type==='expense'?[r.member,r.category,r.affectsBalance?'同步更新余额':'仅统计',r.memo||''].join(' · '):r.source?[r.member,r.source].join(' · '):r.memo||'')+(r.fx?` · 汇率日期 ${r.fx.date}`:'')];for(const value of values){const td=document.createElement('td');td.textContent=value;row.append(td);}$('journalRows').append(row);}
   if(!rows.length){const row=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;td.className='empty';td.textContent='尚无账户流水';row.append(td);$('journalRows').append(row);}
 }
@@ -460,7 +459,7 @@ route();
   try{
     await refreshLedger();
     D.deployment=(await api('/api/runtime')).deployment;
-    $('appNotice').textContent='家庭试用账本：支持全家每月一个支出总额、自定义资金账户、外币流水及持仓估值，确认后保存。已启用家庭登录。'+(D.deployment?'数据保存在部署设备，请定期下载备份。':'当前仅供这台电脑本机试用。');
+    $('appNotice').textContent='家庭试用账本：记录家庭收入、自定义资金账户、外币流水及持仓估值，确认后保存。已启用家庭登录。'+(D.deployment?'数据保存在部署设备，请定期下载备份。':'当前仅供这台电脑本机试用。');
     document.querySelector('.badge').textContent='试用版 · 已登录 · 可保存';
     document.querySelector('.prototype').textContent='家庭试用账本 · SQLite 保存';
     $('ledgerConnection').textContent='账本已连接';
@@ -478,7 +477,7 @@ route();
     document.querySelector('#assets')?.removeAttribute('data-demo');
     $('backupExport').textContent='下载完整账本备份';
     document.querySelector('.backup-box strong').textContent='完整账本备份';
-    document.querySelector('.backup-box p').textContent='包含账户、收入与转账、资产盘点、外币与股票估值、月度支出及历史汇总。';
+    document.querySelector('.backup-box p').textContent='包含账户、收入与转账、资产盘点、外币与股票估值及历史汇总。';
     document.querySelector('[data-page="assets"] .panel-head .muted').textContent='当前本机账本';
     document.querySelector('.trend .panel-head p').textContent='记录点可能为实际盘点、沿用旧值或流水推算。下方说明数据范围。';
     document.querySelector('#assetHistory .panel-head h2').textContent='资产状态历史';

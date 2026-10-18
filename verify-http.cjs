@@ -15,15 +15,15 @@ async function save(records){const p=await preview(records);const c=await reques
  const a=(await request('/api/accounts',{name:'工资卡',owner:init.body.user.member,type:'银行卡',currency:'CNY',date:'2026-08-31',amount:'100'})).body.account;
  assert(a.id);assert.equal((await request('/api/accounts',{name:'不允许跨站',owner:init.body.user.member,type:'银行卡',currency:'CNY',date:'2026-08-31',amount:'1'},{Origin:'https://evil.example'})).status,403);
  await save([{type:'income',date:'2026-09-15',member:m.body.member.member,source:'工资',account:a.id,amount:'50'}]);
- const monthly={requestId:randomUUID(),expectedRevision:0,month:'2026-09',through:'2026-09-30',amount:'20'};assert.equal((await request('/api/expenses/month',monthly)).status,200);
+ const monthly={requestId:randomUUID(),expectedRevision:0,month:'2026-09',through:'2026-09-30',amount:'20'};assert.equal((await request('/api/expenses/month',monthly)).status,405);
  assert.equal((await request('/api/periods/review?month=2026-09')).body.canClose,false);
  await save([{type:'balance',date:'2026-09-30',account:a.id,amount:'130'}]);
  const stale=await preview([{type:'income',date:'2026-09-20',member:third.body.member.member,source:'待确认',account:a.id,amount:'1'}]);
- const review=(await request('/api/periods/review?month=2026-09')).body;assert(review.canClose);assert.equal(review.summary.netCents,3000);
+ const review=(await request('/api/periods/review?month=2026-09')).body;assert(review.canClose);assert.equal(review.summary.incomeCents,5000);assert(!("expenseCents" in review.summary));
  assert.equal((await request('/api/periods/close',{month:'2026-09',digest:review.digest,incomeConfirmed:false})).status,400);
  assert.equal((await request('/api/periods/close',{month:'2026-09',digest:review.digest,incomeConfirmed:true})).status,200);
  assert.equal((await request('/api/import/commit',{kind:stale.kind,prepared:stale.prepared,signature:stale.signature})).status,400);
- assert.equal((await request('/api/expenses/month',{...monthly,requestId:randomUUID(),expectedRevision:1,amount:'30'})).status,400);
+ assert.equal((await request('/api/expenses/month',{...monthly,requestId:randomUUID(),expectedRevision:1,amount:'30'})).status,405);
  assert.equal((await request('/api/accounts',{name:'回填历史',owner:init.body.user.member,type:'银行卡',currency:'CNY',date:'2026-08-01',amount:'1'})).status,400);
  const backup=(await request('/api/backups/export')).body;assert.equal(backup.version,5);assert.equal(backup.tables.monthly_periods.length,1);assert(!backup.tables.auth_users&&!backup.tables.auth_recovery);
  const bp=await request('/api/backups/preview',{backup});assert.equal(bp.status,200,JSON.stringify(bp.body));const restored=await request('/api/backups/restore',{token:bp.body.token,password:'1',acknowledge:true});assert.equal(restored.status,200,JSON.stringify(restored.body));assert.equal((await request('/api/state')).body.periods.length,1);
