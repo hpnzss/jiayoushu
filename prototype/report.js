@@ -61,7 +61,7 @@
       incomes.splice(0,incomes.length,...state.incomes);
       api.balances=state.balances; api.allSnapshots=state.snapshots; api.records=state.records; api.adjustments=state.adjustments; api.live=true;
       api.expenseSummaries=state.expenseSummaries||[];
-      api.history=state.history||[];
+      api.hiddenSnapshotDates=state.hiddenSnapshotDates||[];api.history=state.history||[];
       api.memberProfiles=state.memberProfiles||[];api.members=[...new Set([...(state.members||['成员一','成员二']),...state.incomes.map(r=>r.member)])];api.periods=state.periods||[];
       api.memberName=key=>key==='共同'?'共同':api.memberProfiles.find(p=>p.key===key)?.name||key;
       api.portfolio=state.portfolio;api.legacyAccounts=state.legacyAccounts||state.accounts;
