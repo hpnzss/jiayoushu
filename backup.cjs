@@ -32,7 +32,7 @@ function business(tables){
   const accounts=new Map();
   for(const row of tables.ledger_accounts){const a=JSON.parse(row.payload);need(plain(a)&&a.id===row.id&&validMember(a.owner)&&/^[A-Z]{3}$/.test(a.currency)&&validDate(a.startDate));id(a.id);text(a.name,80);need(a.name.trim()&&ACCOUNT_TYPES.includes(normalizeType(a.type)));accounts.set(a.id,a);}
 
-  for(const row of tables.ledger_accounts){const a=JSON.parse(row.payload);for(const key of ['institution','typeDetail'])if(a[key]!==undefined)text(a[key],80);if(a.archivedAt!==undefined)need(validDate(a.archivedAt)&&a.archivedAt>=a.startDate);}
+  for(const row of tables.ledger_accounts){const a=JSON.parse(row.payload);for(const key of ['institution','typeDetail'])if(a[key]!==undefined)text(a[key],80);if(a.note!==undefined)text(a.note,4000);if(a.archivedAt!==undefined)need(validDate(a.archivedAt)&&a.archivedAt>=a.startDate);}
   const assets=new Map(),portRows=new Map();
   for(const row of tables.portfolio_values){const r=JSON.parse(row.payload),a=r?.asset;need(plain(r)&&plain(a)&&a.id===row.asset_id&&r.date===row.date&&validDate(r.date));id(a.id);need(!accounts.has(a.id)&&['cash','stock','rsu'].includes(a.kind)&&validMember(a.owner)&&['other','purchase','rsu','espp'].includes(a.origin)&&/^[A-Z]{3}$/.test(a.currency));text(a.name,80);need(a.name.trim());
     need(!assets.has(a.id)||hash(assets.get(a.id))===hash(a),'同一持仓资料不一致。');assets.set(a.id,a);number(r.nativeCents);number(r.cnyCents);fx(r.fx,r.date,a.currency);need(convert(r.nativeCents,r.fx.rate)===r.cnyCents,'持仓原币与人民币估值不一致。');

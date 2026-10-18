@@ -42,6 +42,7 @@ jobs:
           node verify-income-charts.cjs
           node verify-v09.cjs
           node verify-v010.cjs
+          node verify-v011.cjs
 
   publish:
     needs: test

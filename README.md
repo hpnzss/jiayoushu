@@ -2,7 +2,7 @@
 
 供家庭使用的收支与资产管理网页，使用手机或电脑浏览器访问，可部署到群晖 Docker。
 
-当前版本：**0.10.0-preview**（开发预览）。镜像仓库：[hpnzss/jiayoushu](https://hub.docker.com/r/hpnzss/jiayoushu)。`preview` 跟随通过发布检查的 main 分支；每次构建还提供 commit 标签，本版提供 `0.10.0-preview` 标签。发布状态见 [GitHub Actions](https://github.com/hpnzss/jiayoushu/actions)。
+当前版本：**0.11.0-preview**（开发预览）。镜像仓库：[hpnzss/jiayoushu](https://hub.docker.com/r/hpnzss/jiayoushu)。`preview` 跟随通过发布检查的 main 分支；每次构建还提供 commit 标签，本版提供 `0.11.0-preview` 标签。发布状态见 [GitHub Actions](https://github.com/hpnzss/jiayoushu/actions)。
 
 ## 功能
 
@@ -49,7 +49,7 @@ iPhone通过Safari添加到主屏幕时，登录页及所有子页面共用名�
 
 ## 部署
 
-详见 [安装、升级与备份](INSTALL.md)。示例 compose 默认使用 Docker Hub 的 `preview` 镜像；需要固定本版可改为 `hpnzss/jiayoushu:0.10.0-preview`。
+详见 [安装、升级与备份](INSTALL.md)。示例 compose 默认使用 Docker Hub 的 `preview` 镜像；需要固定本版可改为 `hpnzss/jiayoushu:0.11.0-preview`。
 
 需要从源码运行时，安装 Node.js 24 后运行：
 
@@ -74,3 +74,11 @@ node server.cjs
 家庭总览集中展示资产与关键指标；收入、支出的按月/年曲线、跨年逐月比较及成员构成图集中在收支统计。未填支出月份留空，截断的月总额不拆分；退款后负支出仅显示曲线及明细，不强行绘制饼图。金额起点可选从0或当前最小值开始，并显示起点刻度。
 
 账户先选类型，再选银行、券商或平台。银行理财使用银行名单；股票提供国泰、中信建投、IBKR、长桥；基金提供同花顺、微信、支付宝。列表末尾可选其他，自定义名称保存后在同类型复用。
+
+## 0.11 账户与资产
+
+银行存款、银行理财和旧理财类型统一显示为“银行存款/理财”，原有账户ID和流水保留。银行存款/理财排在首位，现金第二；已用银行和当前浏览器最近选择优先显示。账户列表按归属、类型、机构和账户名分组排序，账户操作仍按内部ID定位。
+
+账户与资产增加成员/共同/家庭切换的资产类型环形图及金额柱状图；总览固定显示家庭两图。金额使用各账户最新保存的人民币估值，独立于收支日期范围。未知不当0，负余额不强行绘制饼图。
+
+账户备注为自由文本（最多4000字），显示在列表最后并可展开；支持记录访问方法、密码保存位置、验证码获取方式，随完整账本备份和恢复。
