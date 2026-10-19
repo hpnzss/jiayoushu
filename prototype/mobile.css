@@ -54,3 +54,7 @@
  #reportControls .date-controls{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}#reportControls .date-controls label{width:auto;min-width:0;max-width:100%}#reportControls .date-controls .date-control{height:40px;min-height:40px}
  #fundRecurring .form-grid{margin-top:14px}.fund-recurring>p{font-size:11px}.fund-account-fields{margin-bottom:12px}
 }
+
+html[data-standalone=true],html[data-standalone=true] body{touch-action:pan-x pan-y}
+@media(max-width:760px){html[data-standalone=true] input:not([type=checkbox]):not([type=radio]):not([type=range]),html[data-standalone=true] select,html[data-standalone=true] textarea{font-size:16px}.flexible-entry-header{padding:16px}.flexible-entry-header .panel-head{flex-wrap:wrap}.flexible-entry-header .panel-head p{margin-bottom:0}.entry-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.entry-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}

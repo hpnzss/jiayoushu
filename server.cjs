@@ -21,7 +21,9 @@ const portfolio=openPortfolio(path.join(dir,'family.sqlite'),{memberKeys,quote:(
 ledger=openLedger(path.join(dir,'family.sqlite'),{memberKeys,seedDefaults:false,quote:()=>fx.state().quote,portfolioRecords:()=>portfolio.records()});
 // Keep legacy expense tables solely for lossless backup compatibility.
 const financialState=()=>{const s=combineState(ledger.state(),portfolio.records());return {...s,records:s.records.filter(r=>r.type!=='expense')};};
-const periods=require('./periods.cjs').openPeriods(path.join(dir,'family.sqlite'),{state:financialState});
+// Preserve old closing summaries for backups, but dates are always writable.
+const archivedPeriods=require('./periods.cjs').openPeriods(path.join(dir,'family.sqlite'),{state:financialState});
+const periods={list:()=>[],assertWritable:()=>{},close:()=>archivedPeriods.close()};
 const history=require('./history.cjs').openHistory(path.join(dir,'family.sqlite'),{profiles:()=>auth.profiles(),state:financialState,periods:()=>periods.list()});
 const backups=openBackups(path.join(dir,'family.sqlite'));
 const maintenance=require('./maintenance.cjs').openMaintenance(path.join(dir,'family.sqlite'),{ledger,periods,history,profiles:()=>auth.profiles(),backup:()=>backups.safety(),state:financialState});
@@ -35,7 +37,7 @@ const {port,host}=config;
 const files={'/':['index.html','text/html'],'/index.html':['index.html','text/html'],'/report.js':['report.js','text/javascript'],'/ui.js':['ui.js','text/javascript'],'/style.css':['style.css','text/css']};
 Object.assign(files,{'/login':['login.html','text/html'],'/auth.js':['auth.js','text/javascript'],'/session-ui.js':['session-ui.js','text/javascript']});
 files['/backup-ui.js']=['backup-ui.js','text/javascript'];
-files['/workflow-ui.js']=['workflow-ui.js','text/javascript'];files['/monthly-ui.js']=['monthly-ui.js','text/javascript'];
+files['/entry-ui.js']=['entry-ui.js','text/javascript'];
 files['/client-common.js']=['client-common.js','text/javascript'];files['/direct-ui.js']=['direct-ui.js','text/javascript'];
 files['/choices-ui.js']=['choices-ui.js','text/javascript'];files['/modern.css']=['modern.css','text/css'];files['/mobile.css']=['mobile.css','text/css'];
 for(const name of ['asset-reminders.js','panel-filters.js','panel-controls.js','date-controls.js','chart-labels.js','provident-ui.js','table-sort.js','asset-distribution.js','inline-actions.js','account-catalog.js','chart-axis.js','income-composition.js','mobile-shell.js','asset-navigation.js','income-charts.js','income-options.js','maintenance-ui.js','income-series.js','dashboard-ui.js','modern-ui.js','history-ui.js','history-period.js'])files['/'+name]=[name,'text/javascript'];
@@ -50,7 +52,7 @@ const server=http.createServer(async(req,res)=>{
   if(!access){reply(res,400,{error:'请求地址格式无效。'});return;}
   try{
     const token=readToken(req),user=auth.session(token);
-    if(req.method==='GET'&&pathname==='/health'){reply(res,200,{status:'ok',version:'0.15.0-preview'});return;}
+    if(req.method==='GET'&&pathname==='/health'){reply(res,200,{status:'ok',version:'0.16.0-preview'});return;}
     if(req.method==='GET'&&pathname==='/api/auth/status'){reply(res,200,{setupRequired:auth.setupRequired(),signedIn:!!user,user});return;}
     if(previewMode&&req.method==='GET'&&pathname==='/preview'){const r=await auth.login({username:'previewadmin',password:process.env.FAMILY_PREVIEW_PASSWORD},'local-preview',token);setCookie(res,r.token,origin);redirect(res,'/#assets');return;}
     if(req.method==='GET'&&pathname==='/manifest.webmanifest'){res.writeHead(200,{'Content-Type':'application/manifest+json; charset=utf-8','Cache-Control':'no-cache'});res.end(JSON.stringify(require('./app-icons.cjs').manifest));return;}
@@ -61,19 +63,17 @@ const server=http.createServer(async(req,res)=>{
       if(pathname.startsWith('/api/'))reply(res,401,{error:'请先登录，或登录已过期。'});else redirect(res,'/login');return;
     }
     if(user&&req.method==='GET'&&pathname==='/login'){redirect(res,'/');return;}
-    if(req.method==='GET'&&pathname==='/api/runtime'){reply(res,200,{deployment:config.deployment,preview:previewMode,version:'0.15.0-preview'});return;}
+    if(req.method==='GET'&&pathname==='/api/runtime'){reply(res,200,{deployment:config.deployment,preview:previewMode,version:'0.16.0-preview'});return;}
     if(req.method==='GET'&&pathname==='/api/catalog'){reply(res,200,require('./banks.cjs'));return;}
     if(req.method==='GET'&&pathname==='/api/state'){provident.runDue();reply(res,200,{...financialState(),hiddenSnapshotDates:maintenance.hiddenSnapshotDates(),history:history.list(),members:memberKeys(),memberProfiles:auth.profiles(),periods:periods.list()});return;}
     if(req.method==='GET'&&pathname==='/api/members'){reply(res,200,{members:auth.listMembers(user)});return;}
     if(req.method==='GET'&&pathname==='/api/provident'){reply(res,200,provident.status());return;}
     if(req.method==='GET'&&pathname==='/api/maintenance'){auth.requireAdmin(user);reply(res,200,{trash:maintenance.list().filter(t=>t.action!=='delete-expense'&&(t.action!=='delete-record'||!t.affected?.some(r=>r.type==='expense')))});return;}
-    if(req.method==='GET'&&pathname==='/api/periods/review'){reply(res,200,periods.review(new URL(req.url,'http://localhost').searchParams.get('month')));return;}
-    if(req.method==='GET'&&pathname==='/api/periods/preview'){const q=new URL(req.url,'http://localhost').searchParams,p=require('./period-preview.cjs').previewPeriod(financialState(),q.get('month'),q.get('through'));reply(res,200,{...p,ledgerClosed:periods.list().some(r=>r.month===p.month)});return;}
     if(req.method==='GET'&&pathname==='/api/onboarding'){reply(res,200,auth.onboarding(user));return;}
     if(req.method==='GET'&&pathname==='/api/backups/export'){res.setHeader('Content-Disposition','attachment; filename="family-assets-backup.json"');reply(res,200,backups.exportBackup());return;}
     if(req.method==='GET'&&pathname==='/api/backups/status'){reply(res,200,backups.status());return;}
     if(req.method==='GET'&&pathname==='/api/fx'){reply(res,200,process.env.FAMILY_FX_DISABLE==='1'?fx.state():await fx.refresh());return;}
-    if(req.method==='POST'&&['/api/provident/manual','/api/provident/rule','/api/maintenance/preview','/api/maintenance/commit','/api/history/preview','/api/history/commit','/api/balances/month','/api/onboarding','/api/records/save','/api/auth/recover','/api/auth/recovery-code','/api/members/profile','/api/members/add','/api/members/remove','/api/members/reset-password','/api/periods/close','/api/periods/reopen','/api/backups/preview','/api/backups/restore','/api/import/preview','/api/import/commit','/api/fx/refresh','/api/accounts','/api/auth/setup','/api/auth/login','/api/auth/logout','/api/auth/password'].includes(pathname)){
+    if(req.method==='POST'&&['/api/provident/manual','/api/provident/rule','/api/maintenance/preview','/api/maintenance/commit','/api/history/preview','/api/history/commit','/api/balances','/api/balances/month','/api/onboarding','/api/records/save','/api/auth/recover','/api/auth/recovery-code','/api/members/profile','/api/members/add','/api/members/remove','/api/members/reset-password','/api/backups/preview','/api/backups/restore','/api/import/preview','/api/import/commit','/api/fx/refresh','/api/accounts','/api/auth/setup','/api/auth/login','/api/auth/logout','/api/auth/password'].includes(pathname)){
       if(!access.sameOrigin){reply(res,403,{error:'不允许跨站提交'});return;}
       if(!(req.headers['content-type']||'').startsWith('application/json')){reply(res,415,{error:'仅接受JSON数据'});return;}
       const chunks=[];let size=0;
@@ -94,8 +94,6 @@ const server=http.createServer(async(req,res)=>{
       if(pathname==='/api/members/profile'){reply(res,200,auth.updateMember(user,input));return;}
       if(pathname==='/api/members/remove'){auth.removeMember(user,input.id);reply(res,200,{removed:true});return;}
       if(pathname==='/api/members/reset-password'){await auth.resetMember(user,input,token);reply(res,200,{reset:true});return;}
-      if(pathname==='/api/periods/close'){reply(res,200,periods.finish(input,user));auth.recordAction(user,'period/close');return;}
-      if(pathname==='/api/periods/reopen'){auth.requireAdmin(user);periods.reopen(input.month);auth.recordAction(user,'period/reopen');reply(res,200,{reopened:true});return;}
       if(pathname==='/api/backups/preview'){reply(res,200,backups.preview(input.backup,user.id));return;}
       if(pathname==='/api/backups/restore'){
         auth.requireAdmin(user);
@@ -108,7 +106,7 @@ const server=http.createServer(async(req,res)=>{
       if(pathname==='/api/auth/logout'){auth.logout(token);setCookie(res,null,origin);reply(res,200,{signedOut:true});return;}
       if(pathname==='/api/auth/password'){await auth.changePassword(user,input,token,req.socket.remoteAddress||'');setCookie(res,null,origin);reply(res,200,{passwordChanged:true});return;}
       if(pathname==='/api/fx/refresh'){reply(res,200,process.env.FAMILY_FX_DISABLE==='1'?fx.state():await fx.refresh(true));return;}
-      if(pathname==='/api/balances/month'){const result=await require('./month-balances.cjs').saveMonthBalances(input,{ledger,periods,fx,disableFx:process.env.FAMILY_FX_DISABLE==='1'});auth.recordAction(user,pathname);reply(res,200,result);return;}
+      if(['/api/balances','/api/balances/month'].includes(pathname)){const result=await require('./month-balances.cjs').saveMonthBalances(input,{ledger,periods,fx,disableFx:process.env.FAMILY_FX_DISABLE==='1'});auth.recordAction(user,pathname);reply(res,200,result);return;}
       if(pathname==='/api/accounts'){if(!input.id||input.updateValue===true)periods.assertWritable([input.date]);const account=ledger.saveAccount(input);auth.recordAction(user,pathname);reply(res,200,{account});return;}
       periods.assertWritable((input.data?.records||input.prepared?.rows||[]).map(r=>r.date));
       history.assertNoIncomeOverlap(input.data?.records||input.prepared?.rows||[]);

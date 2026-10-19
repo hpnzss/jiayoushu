@@ -25,6 +25,6 @@ async function request(route,body){const r=await fetch('http://127.0.0.1:4325'+r
  const catalog=(await request('/api/catalog')).body;assert(catalog.banks.includes('汇丰银行（中国）')&&catalog.banks.includes('汇丰银行（香港）')&&catalog.banks.length>3000);
  const backup=(await request('/api/backups/export')).body;assert.equal((await request('/api/backups/preview',{backup})).status,200);
  assert.equal((await request('/api/expenses/month',{month:'2026-01',amount:'1'})).status,405);
- const beforePeriods=(await request('/api/state')).body.periods;const temporary=await request('/api/periods/preview?month=2026-01&through=2026-01-31');assert.equal(temporary.status,200);assert.equal(temporary.body.final,false);assert.equal(temporary.body.ledgerClosed,false);assert(!('expenseCents' in temporary.body.summary));assert.deepEqual((await request('/api/state')).body.periods,beforePeriods);assert.equal((await request('/api/periods/preview?month=2026-01&through=2026-02-01')).status,400);
+ assert.equal((await request('/api/periods/preview?month=2026-01&through=2026-01-31')).status,404);assert.deepEqual((await request('/api/state')).body.periods,[]);
  console.log('测试通过：9种账户、银行名单、自定义类型、5类收入、支出接口停用及收入资产预览、数量估值、外币、转账守恒、去重、旧股票合并、备份与HTTP浏览器兼容。');
 }finally{server.kill();await new Promise(resolve=>server.exitCode!==null?resolve():server.once('exit',resolve));if(path.dirname(dir)===os.tmpdir())fs.rmSync(dir,{recursive:true,force:true});}})().catch(e=>{console.error(e);process.exitCode=1;});

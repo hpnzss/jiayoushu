@@ -470,7 +470,7 @@ route();
     $('confirmDraft').textContent='确认并保存到账本';
     document.querySelector('#balanceForm button').textContent='生成余额盘点草稿';
     document.querySelector('#balanceForm').parentElement.querySelector('.status-tag').textContent='可保存';
-    document.querySelector('#balanceForm').nextElementSibling.textContent='生成草稿后，到月度填报页核对并保存。';
+    document.querySelector('#balanceForm').nextElementSibling.textContent='生成草稿后，到记录与更新页核对并保存。';
     document.querySelector('#balanceForm').nextElementSibling.nextElementSibling.textContent='允许历史补录；后续已确认余额保持不变，期间校准差额重新计算。同账户同日盘点暂不支持覆盖。';
     document.querySelector('#manualForm').previousElementSibling.querySelector('p').textContent='填写后生成草稿，确认后保存并更新统计。';
     document.querySelector('#draftPanel .panel-head p').textContent='核对金额、日期、成员和账户，确认后保存；同一批次重复提交不会重复记账。';

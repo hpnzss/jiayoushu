@@ -1,6 +1,6 @@
 'use strict';
 (()=>{
- const panel=document.createElement('article');panel.className='panel';panel.id='historyImportPanel';panel.innerHTML=`<div class="panel-head"><div><h2>导入历史记录</h2><p>补齐过去的收入与家庭总资产，只用于统计和曲线，不改银行卡余额，不替代月度账户核对。</p></div><span class="status-tag">人民币汇总</span></div>
+ const panel=document.createElement('article');panel.className='panel';panel.id='historyImportPanel';panel.innerHTML=`<div class="panel-head"><div><h2>导入历史记录</h2><p>补齐过去的收入与家庭总资产，只用于统计和曲线，不改银行卡余额，不替代日常账户核对。</p></div><span class="status-tag">人民币汇总</span></div>
  <p id="historyPermission" class="muted"></p><form id="historyImportForm"><label class="field">导入内容<select id="historyKind"><option value="income">历史收入汇总（不限人数与期间）</option><option value="assets">历史家庭总资产</option></select></label>
  <label class="field" id="historyIncomeFormatField">表格格式<select id="historyIncomeFormat"><option value="general">通用表 · 每行一位成员的一段期间</option><option value="pair">快捷表 · 两个人的每月收入</option></select></label>
  <div id="historyMemberMap" class="form-grid"><label class="field">“成员一收入”这一列对应<select id="historyMember1"></select></label><label class="field">“成员二收入”这一列对应<select id="historyMember2"></select></label></div>

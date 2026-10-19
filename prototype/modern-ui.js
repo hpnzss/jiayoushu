@@ -9,8 +9,8 @@
  const definitions={assetValue:'所选结束日以前最近的资产记录：可能是账户余额与市值合计，也可能是单独导入的历史家庭总额。',deltaValue:'期末资产减去开始日前最近的资产参考值。账户范围变动也会影响金额，不等于赚了多少钱。',incomeValue:'所选期间已经录入的家庭收入。内部转账、初始余额和单纯的估值上涨不算收入。',reportIncomeValue:'按所选日期及成员汇总已录收入，内部转账不计入；历史汇总只在统计范围覆盖其完整期间时计入，不自动按天拆分。'};
  const metricDefinitions={incomeCents:'本月已录收入合计，不含内部转账。',assetsCents:'各账户余额 / 市值的人民币合计，可能沿用旧盘点。',deltaCents:'与月初以前最近的资产参考值比较；缺少期初时不计算。'};
  function explain(container,text){if(!container||container.querySelector('.metric-definition'))return;const p=document.createElement('small');p.className='metric-definition';p.textContent=text;container.append(p);}
- function apply(){for(const [id,text]of Object.entries(definitions)){const value=$(id);if(value)explain(value.closest('article')||value.parentElement,text);}for(const a of $('monthSummary')?.children||[])explain(a,metricDefinitions[a.dataset.metric]||'金额来自当前已保存的账本记录。');for(const a of $('temporaryMetrics')?.children||[]){const label=a.querySelector('span')?.textContent||'',key=label.includes('收入')?'incomeCents':label.includes('变化')?'deltaCents':'assetsCents';explain(a,metricDefinitions[key]);}
+ function apply(){for(const [id,text]of Object.entries(definitions)){const value=$(id);if(value)explain(value.closest('article')||value.parentElement,text);}
   for(const [id,key]of [['assetValue','assets'],['deltaValue','income'],['incomeValue','entry']]){const card=$(id)?.closest('article');if(card&&!card.querySelector('.metric-glyph')){const glyph=document.createElement('span');glyph.className='metric-glyph';glyph.innerHTML=icon(key);card.append(glyph);}}
  }
- const observer=new MutationObserver(()=>apply());for(const id of ['monthSummary','temporaryMetrics'])if($(id))observer.observe($(id),{childList:true});document.addEventListener('family-ledger-ready',apply);document.addEventListener('family-app-ready',apply);window.FamilyMetricHelp={apply};apply();
+ document.addEventListener('family-ledger-ready',apply);document.addEventListener('family-app-ready',apply);window.FamilyMetricHelp={apply};apply();
 })();
