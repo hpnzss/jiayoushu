@@ -1,0 +1,28 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const {select,incomeSummary}=require('./prototype/overview-ui.js');
+assert.equal(select('overview',null),'summary');assert.equal(select('overview','income'),'income');assert.equal(select('overview','bad'),'summary');assert.equal(select('summary','income'),'summary');assert.equal(select('details'),'income');assert.equal(select('trend','income'),'summary');assert.equal(select('asset-analysis','income'),'asset-analysis');
+const R=require('./prototype/report.js'),original=R.reportingIncomes;
+R.reportingIncomes=()=>[{date:'2026-10-01',cents:200000,source:'工资奖金'},{date:'2026-10-10',cents:30000,category:'公积金'},{date:'2026-10-11',cents:20000,source:'历史公积金补录'},{date:'2026-01-10',cents:100000,source:'工资奖金'},{date:'2025-12-31',cents:900000,source:'工资奖金'}];
+const result=incomeSummary((s,e)=>R.report(s,e),'2026-10-19');assert.equal(result.month,250000);assert.equal(result.year,350000);assert.equal(result.monthFund,50000);assert.equal(result.yearFund,50000);R.reportingIncomes=original;
+// Minimal DOM exercises the real regrouping and route hook, without copying UI logic.
+class Element{constructor(){this.children=[];this.dataset={};this.hidden=false;this.attributes={};this.classList={toggle(){}};}append(...items){for(const item of items){item.remove();item.parent=this;this.children.push(item);}}prepend(...items){for(const item of items.slice().reverse()){item.remove();item.parent=this;this.children.unshift(item);}}remove(){if(this.parent)this.parent.children=this.parent.children.filter(x=>x!==this);this.parent=null;}setAttribute(k,v){this.attributes[k]=v;}removeAttribute(k){delete this.attributes[k];}querySelectorAll(){return this.children.filter(x=>x.href);}querySelector(s){return this.queries?.[s]||null;}closest(){return this.article;}}
+const ids={},get=id=>ids[id]||(ids[id]=new Element()),overview=new Element(),income=new Element(),navIncome=new Element(),navOverview=new Element(),navSettings=new Element();
+overview.queries={'.quick-links':get('quick')};get('overviewMetrics').queries={'h2':new Element(),'.panel-head p':new Element()};get('incomeValue').article=new Element();
+const nav=new Element();nav.append(navOverview,navIncome,navSettings);navOverview.queries={span:new Element()};navSettings.queries={span:new Element()};
+const queries={'[data-page=overview]':overview,'[data-page=income]':income,'nav[aria-label=主导航] [data-route=income]':navIncome,'[data-route=overview] span':navOverview.queries.span,'[data-route=settings] span':navSettings.queries.span};
+const events={},storage=new Map(),context={document:{querySelector:s=>queries[s],createElement:()=>new Element(),documentElement:{dataset:{}},addEventListener:(k,f)=>events[k]=f},$:get,location:{origin:'http://example.test'},localStorage:{getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v)},requestAnimationFrame:f=>f(),money:n=>String(n),D:{today:'2026-10-19',report:()=>({rows:[],income:0})},render(){},route(){},console};context.window=context;vm.createContext(context);vm.runInContext(fs.readFileSync(path.join(__dirname,'prototype/overview-ui.js'),'utf8'),context);
+const summary=get('overviewMetrics').parent,assets=get('asset-types').parent;
+assert.equal(summary,get('trend').parent);assert.equal(assets,get('asset-currencies').parent);assert.equal(income.parent,overview);assert.equal(nav.children.length,2);assert.equal(context.document.documentElement.dataset.navigation,'four');
+context.FamilyOverview.show('income');assert.equal(income.hidden,false);assert.equal(summary.hidden,true);assert.equal(assets.hidden,true);assert.equal(get('export').hidden,false);
+context.FamilyOverview.show('asset-analysis');assert.equal(income.hidden,true);assert.equal(assets.hidden,false);assert.equal(get('export').hidden,true);
+context.FamilyOverview.show('overview');assert.equal(assets.hidden,false);context.FamilyOverview.show('summary');assert.equal(summary.hidden,false);assert.equal(assets.hidden,true);assert.equal(income.hidden,true);
+context.currentFamilyUser={member:'another'};context.FamilyOverview.show('overview');assert.equal(summary.hidden,false);context.FamilyOverview.show('income');context.currentFamilyUser={member:'first'};context.FamilyOverview.show('overview');assert.equal(summary.hidden,false);
+const html=fs.readFileSync(path.join(__dirname,'prototype/index.html'),'utf8');assert(html.indexOf('overview-ui.js')>html.indexOf('panel-controls.js'));assert(fs.readFileSync(path.join(__dirname,'server.cjs'),'utf8').includes("'overview-ui.js'"));
+assert.equal((html.match(/data-route=/g)||[]).length,4);
+overview.dataset.page='overview';income.dataset.page='income';const entry=new Element();entry.dataset.page='entry';navOverview.dataset.route='overview';
+context.document.querySelectorAll=s=>s==='[data-page]'?[overview,income,entry]:s==='[data-route]'?[navOverview]:[];context.history={replaceState(){}};context.scrollTo=()=>{};context.addEventListener=()=>{};
+const ui=fs.readFileSync(path.join(__dirname,'prototype/ui.js'),'utf8');vm.runInContext(ui.slice(ui.indexOf('const pageInfo ='),ui.indexOf('const accountSelects =')),context);
+context.location.hash='#income';context.route();assert.equal(overview.hidden,false);assert.equal(income.hidden,false);assert.equal(summary.hidden,true);assert.equal(entry.hidden,true);
+context.location.hash='#entry';context.route();assert.equal(overview.hidden,true);assert.equal(entry.hidden,false);
+context.location.hash='#asset-analysis';context.route();assert.equal(overview.hidden,false);assert.equal(assets.hidden,false);assert.equal(income.hidden,true);
+console.log('0.17检查通过：四入口合并、三个标签独立显隐、旧收入链接兼容、标签按成员记忆、资产面板迁移、收入导出可用、本月/今年收入含公积金及摘要分列。');

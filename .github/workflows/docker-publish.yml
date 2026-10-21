@@ -51,6 +51,7 @@ jobs:
           node verify-v014.cjs
           node verify-v015.cjs
           node verify-v016.cjs
+          node verify-v017.cjs
 
   publish:
     needs: test

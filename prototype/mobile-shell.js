@@ -9,5 +9,5 @@
  for(const event of ['touchstart','touchmove'])document.addEventListener(event,e=>{if(e.touches?.length>1)stop(e);},{passive:false});
  // Main-screen launch always uses the same entry, while hash tabs stay in-app.
  if(standalone()&&location.pathname!=='/login'){try{if(!sessionStorage.getItem('family-standalone-started')){sessionStorage.setItem('family-standalone-started','1');history.replaceState(null,'','/#overview');}}catch{}}
- document.addEventListener('click',e=>{const a=e.target.closest?.('a[data-route]');if(!standalone()||!a||e.defaultPrevented||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;const url=new URL(a.href,location.href);if(url.origin!==location.origin||url.pathname!=='/'||!/^#(overview|entry|income|assets|settings)$/.test(url.hash))return;e.preventDefault();location.hash=url.hash;});
+ document.addEventListener('click',e=>{const a=e.target.closest?.('a[data-route]');if(!standalone()||!a||e.defaultPrevented||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;const url=new URL(a.href,location.href);if(url.origin!==location.origin||url.pathname!=='/'||!/^#(overview|summary|asset-analysis|entry|income|assets|settings)$/.test(url.hash))return;e.preventDefault();location.hash=url.hash;});
 })();

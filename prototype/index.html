@@ -4,18 +4,18 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>家有数</title><meta name="application-name" content="家有数"><meta name="apple-mobile-web-app-title" content="家有数"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="theme-color" content="#8b64e8"><link rel="manifest" href="/manifest.webmanifest"><link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png"><link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
   <link rel="stylesheet" href="style.css"><link rel="stylesheet" href="modern.css"><link rel="stylesheet" href="mobile.css">
-  <script defer src="mobile-shell.js"></script><script defer src="chart-axis.js"></script><script defer src="chart-labels.js"></script><script defer src="history-period.js"></script><script defer src="client-common.js"></script><script defer src="report.js"></script><script defer src="panel-filters.js"></script><script defer src="ui.js"></script><script defer src="asset-reminders.js"></script><script defer src="session-ui.js"></script><script defer src="backup-ui.js"></script><script defer src="account-catalog.js"></script><script defer src="choices-ui.js"></script><script defer src="entry-ui.js"></script><script defer src="direct-ui.js"></script><script defer src="provident-ui.js"></script><script defer src="income-series.js"></script><script defer src="dashboard-ui.js"></script><script defer src="modern-ui.js"></script><script defer src="history-ui.js"></script><script defer src="maintenance-ui.js"></script><script defer src="income-options.js"></script><script defer src="income-charts.js"></script><script defer src="asset-navigation.js"></script><script defer src="income-composition.js"></script><script defer src="inline-actions.js"></script><script defer src="asset-distribution.js"></script><script defer src="table-sort.js"></script><script defer src="date-controls.js"></script><script defer src="panel-controls.js"></script>
+  <script defer src="mobile-shell.js"></script><script defer src="chart-axis.js"></script><script defer src="chart-labels.js"></script><script defer src="history-period.js"></script><script defer src="client-common.js"></script><script defer src="report.js"></script><script defer src="panel-filters.js"></script><script defer src="ui.js"></script><script defer src="asset-reminders.js"></script><script defer src="session-ui.js"></script><script defer src="backup-ui.js"></script><script defer src="account-catalog.js"></script><script defer src="choices-ui.js"></script><script defer src="entry-ui.js"></script><script defer src="direct-ui.js"></script><script defer src="provident-ui.js"></script><script defer src="income-series.js"></script><script defer src="dashboard-ui.js"></script><script defer src="modern-ui.js"></script><script defer src="history-ui.js"></script><script defer src="maintenance-ui.js"></script><script defer src="income-options.js"></script><script defer src="income-charts.js"></script><script defer src="asset-navigation.js"></script><script defer src="income-composition.js"></script><script defer src="inline-actions.js"></script><script defer src="asset-distribution.js"></script><script defer src="table-sort.js"></script><script defer src="date-controls.js"></script><script defer src="panel-controls.js"></script><script defer src="overview-ui.js"></script>
 </head>
 <body>
 <aside class="sidebar">
   <div class="brand"><span class="logo">家</span><div>家有数<small>让家庭财富有迹可循</small></div></div>
   <div class="family">我们的家庭 <span>2 位成员</span></div>
-  <nav aria-label="主导航"><a href="#overview" data-route="overview">◫ <span>家庭总览</span></a><a href="#entry" data-route="entry">✧ <span>智能录入</span></a><a href="#income" data-route="income">▥ <span>收入统计</span></a><a href="#assets" data-route="assets">▤ <span>资产盘点</span></a><a href="#settings" data-route="settings">⚙ <span>设置与备份</span></a></nav>
+  <nav aria-label="主导航"><a href="#overview" data-route="overview">◫ <span>家庭概况</span></a><a href="#entry" data-route="entry">✧ <span>智能录入</span></a><a href="#assets" data-route="assets">▤ <span>资产盘点</span></a><a href="#settings" data-route="settings">⚙ <span>设置与备份</span></a></nav>
   <div class="side-note"><strong>每一次盘点，<br>都让生活更清晰。</strong><p>收入分别记录<br>资产共同看见</p></div>
   <div class="prototype">本地交互原型 · 虚拟数据</div>
 </aside>
 <main>
-  <header><div class="eyebrow" id="pageEyebrow">FAMILY FINANCE / 家庭总览</div><div class="heading"><div><h1 id="pageTitle">看见家庭的每一步积累<span>。</span></h1><p id="pageSubtitle">家庭收入、资产与变化，一眼看清。</p></div><span class="badge">五页面原型 · 虚拟数据</span></div></header>
+  <header><div class="eyebrow" id="pageEyebrow">FAMILY FINANCE / 家庭概况</div><div class="heading"><div><h1 id="pageTitle">看见家庭的每一步积累<span>。</span></h1><p id="pageSubtitle">家庭收入、资产与变化，一眼看清。</p></div><span class="badge">四页面原型 · 虚拟数据</span></div></header>
   <div class="demo-notice" id="appNotice">当前为操作预览，所有金额均为虚拟数据。草稿和盘点试算只在本页临时保留，刷新即清空；尚未连接 AI、登录与正式数据库。</div>
   <div id="reportControls" hidden>
   <section class="filters" aria-label="报告筛选">
@@ -26,15 +26,15 @@
   <div id="error" role="alert"></div>
   <div class="period-caption"><strong id="range"></strong><span>上海时间 · 起止日均包含</span></div>
   </div>
-  <section data-page="overview" aria-label="家庭总览">
+  <section data-page="overview" aria-label="家庭概况">
   <section class="stats" aria-label="关键指标">
     <article class="metric primary"><div>期末家庭资产 <span>家庭口径</span></div><strong id="assetValue"></strong><p id="assetDate"></p></article>
-    <article class="metric"><div>期间资产变化</div><strong id="deltaValue"></strong><p id="openingDate"></p></article>
+
     <article class="metric"><div id="incomeTitle">期间家庭收入</div><strong id="incomeValue"></strong><p>按收入日期统计，内部转账不计入</p></article>
   </section>
   <div id="portfolioOverview" class="demo-notice" style="margin-top:18px" hidden></div>
   <section id="trend" class="panel trend"><div class="panel-head"><div><h2>家庭资产，随时间生长</h2><p>圆点为完整盘点记录；虚线起点为区间前参考值。</p></div><button id="chartExport" class="outline">导出图表 ↗</button></div><div id="assetChart" class="chart"></div><div id="chartNote" class="chart-note"></div></section>
-  <div class="quick-links"><a href="#entry">＋ 记录收入或转账 <span>进入智能录入 →</span></a><a href="#assets">更新账户实际余额 <span>进入资产盘点 →</span></a><a href="#income">查看家庭收入 <span>进入收入统计 →</span></a></div>
+  <div class="quick-links"><a href="#entry">＋ 记录收入或转账 <span>进入记录与更新 →</span></a><a href="#assets">更新账户实际余额 <span>进入账户与资产 →</span></a><a href="#income">查看家庭收入 <span>进入收入分析 →</span></a></div>
   </section>
   <section data-page="income" aria-label="收入统计" hidden>
     <div class="income-summary"><span id="reportIncomeLabel">期间家庭收入</span><strong id="reportIncomeValue"></strong><small>按收入日期汇总 · 不包含内部转账</small></div>

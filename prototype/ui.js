@@ -34,8 +34,6 @@ function render() {
   $('range').textContent = `${r.start} — ${r.end}${r.end === D.today ? (D.live ? ' · 截至今日' : ' · 截至演示数据日') : ''}`;
   $('assetValue').textContent = r.closing ? money(D.total(r.closing)) : '资料不足';
   $('assetDate').textContent = r.closing ? `${r.closing.historical?'历史家庭总额':r.closing.kind==='estimated'?'部分盘点或流水推算':'完整盘点'}：${r.closing.date}${r.closing.date < r.end ? ' · 沿用历史记录' : ''}` : '资料不足：请先确认每个账户的初始余额';
-  $('deltaValue').textContent = signed(r.delta);
-  $('openingDate').textContent = r.opening ? `期初参考：${r.opening.date}` : '缺少开始日前的资产记录';
   $('incomeTitle').textContent = '期间家庭收入';
   $('incomeValue').textContent = money(r.income);
   $('reportIncomeLabel').textContent = '期间家庭收入';
@@ -140,7 +138,7 @@ preset();
 
 // 页面导航：只显示当前版面，兼容旧原型的曲线和明细链接。
 const pageInfo = {
-  overview: ['家庭总览','看见家庭的每一步积累。','家庭收入、资产与变化，一眼看清。'],
+  overview: ['家庭概况','看见家庭的每一步积累。','概览、资产与收入，按需切换查看。'],
   entry: ['智能录入','把记录变得轻松一点。','文字、截图和手动填写，最后都由你确认。'],
   income: ['收入统计','各自的努力，一起的积累。','查看成员与家庭收入，按月、按年和自选时间汇总。'],
   assets: ['资产盘点','钱在哪里，心里有数。','定期确认实际余额，让家庭资产更贴近真实情况。'],
@@ -148,16 +146,16 @@ const pageInfo = {
 };
 function route() {
   const requested = location.hash.slice(1);
-  const alias = {trend:'overview',accounts:'assets',details:'income'};
+  const alias = {trend:'overview',accounts:'assets',details:'overview',income:'overview',summary:'overview','asset-analysis':'overview'};
   const key = alias[requested] || (pageInfo[requested] ? requested : 'overview');
-  if (requested !== key) history.replaceState(null,'','#'+key);
+  if (requested !== key && !['summary','asset-analysis','income','details','trend'].includes(requested)) history.replaceState(null,'','#'+key);
   document.querySelectorAll('[data-page]').forEach(p => p.hidden = p.dataset.page !== key);
   document.querySelectorAll('[data-route]').forEach(a => { const active = a.dataset.route === key; a.classList.toggle('active',active); if(active) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   $('pageEyebrow').textContent = 'FAMILY FINANCE / ' + pageInfo[key][0];
   $('pageTitle').textContent = pageInfo[key][1]; $('pageSubtitle').textContent = pageInfo[key][2];
   $('reportControls').hidden = true;
   $('export').hidden = key !== 'income';
-  if (key === 'overview' && member !== '全家') { member = '全家'; document.querySelectorAll('[data-member]').forEach(b => b.classList.toggle('active',b.dataset.member === '全家')); render(); }
+  window.FamilyOverview?.show(requested);
   document.title='家有数';
   window.scrollTo(0,0);
   if(key==='settings'&&D.live)loadFx();
