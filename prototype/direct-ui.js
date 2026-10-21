@@ -13,8 +13,6 @@
  const manualStatus=document.createElement('p');manualStatus.id='manualStatus';manualStatus.setAttribute('role','status');$('manualForm').after(manualStatus);$('manualForm').querySelector('button').textContent='保存收入';$('manualForm').closest('article').querySelector('.panel-head p').textContent='选择收入分类、成员和到账账户，填写金额后直接保存。内部转账不会计作收入。';$('previewImport').textContent='导入并保存';$('previewImport').closest('article').querySelector('.panel-head p').textContent='把助手整理好的JSON粘贴到这里，检查格式后直接保存。';$('copyGuide').textContent='复制给聊天助手的格式说明';
  const sourceLabel=$('sourceField');sourceLabel.firstChild.textContent='收入分类';
  $('balanceForm').closest('article').hidden=true;
- $('onboardingPanel').querySelector('h2').textContent='从这里开始，把家庭账本建起来';
- $('onboardingPanel').querySelectorAll('li')[0].textContent='建立账户：选择类型、币种并填余额 / 市值';
  const originalRefresh=refreshAccountControls;
  refreshAccountControls=function(){originalRefresh();syncAccountOptions();};
  const oldPortfolio=renderPortfolio;

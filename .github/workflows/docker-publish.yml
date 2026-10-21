@@ -52,6 +52,10 @@ jobs:
           node verify-v015.cjs
           node verify-v016.cjs
           node verify-v017.cjs
+      - name: Test complete page initialization
+        run: |
+          npm install --prefix "$RUNNER_TEMP/jiayoushu-ui-qa" --no-save --ignore-scripts jsdom@30.1.3
+          FAMILY_QA_NODE_MODULES="$RUNNER_TEMP/jiayoushu-ui-qa/node_modules" node verify-ui-bootstrap.cjs
 
   publish:
     needs: test

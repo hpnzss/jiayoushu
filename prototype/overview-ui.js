@@ -9,6 +9,8 @@
  const panes={};for(const [key,label]of [['summary','概览'],['asset-analysis','资产分析'],['income','收入分析']]){const a=document.createElement('a');a.href='#'+key;a.textContent=label;a.dataset.overviewTab=key;tabs.append(a);const pane=key==='income'?income:document.createElement('section');pane.id='overview-'+key;pane.setAttribute('aria-label',label);panes[key]=pane;}
  // Move existing panels rather than cloning IDs, listeners or filter state.
  const summary=panes.summary,assets=panes['asset-analysis'];
+ // Keep moved panels connected so existing ID lookups and listeners remain valid.
+ overview.append(summary,assets);
  summary.append($('overviewMetrics'),$('trend'));
  const legacy=document.createElement('div');legacy.hidden=true;legacy.id='overviewCompatibility';legacy.append($('overview-types'),$('overview-currencies'),$('incomeValue').closest('article'));
  assets.append($('asset-types'),$('asset-currencies'));

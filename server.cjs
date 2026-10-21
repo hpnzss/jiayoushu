@@ -52,7 +52,7 @@ const server=http.createServer(async(req,res)=>{
   if(!access){reply(res,400,{error:'请求地址格式无效。'});return;}
   try{
     const token=readToken(req),user=auth.session(token);
-    if(req.method==='GET'&&pathname==='/health'){reply(res,200,{status:'ok',version:'0.17.0-preview'});return;}
+    if(req.method==='GET'&&pathname==='/health'){reply(res,200,{status:'ok',version:'0.17.1-preview'});return;}
     if(req.method==='GET'&&pathname==='/api/auth/status'){reply(res,200,{setupRequired:auth.setupRequired(),signedIn:!!user,user});return;}
     if(previewMode&&req.method==='GET'&&pathname==='/preview'){const r=await auth.login({username:'previewadmin',password:process.env.FAMILY_PREVIEW_PASSWORD},'local-preview',token);setCookie(res,r.token,origin);redirect(res,'/#assets');return;}
     if(req.method==='GET'&&pathname==='/manifest.webmanifest'){res.writeHead(200,{'Content-Type':'application/manifest+json; charset=utf-8','Cache-Control':'no-cache'});res.end(JSON.stringify(require('./app-icons.cjs').manifest));return;}
@@ -63,7 +63,7 @@ const server=http.createServer(async(req,res)=>{
       if(pathname.startsWith('/api/'))reply(res,401,{error:'请先登录，或登录已过期。'});else redirect(res,'/login');return;
     }
     if(user&&req.method==='GET'&&pathname==='/login'){redirect(res,'/');return;}
-    if(req.method==='GET'&&pathname==='/api/runtime'){reply(res,200,{deployment:config.deployment,preview:previewMode,version:'0.17.0-preview'});return;}
+    if(req.method==='GET'&&pathname==='/api/runtime'){reply(res,200,{deployment:config.deployment,preview:previewMode,version:'0.17.1-preview'});return;}
     if(req.method==='GET'&&pathname==='/api/catalog'){reply(res,200,require('./banks.cjs'));return;}
     if(req.method==='GET'&&pathname==='/api/state'){provident.runDue();reply(res,200,{...financialState(),hiddenSnapshotDates:maintenance.hiddenSnapshotDates(),history:history.list(),members:memberKeys(),memberProfiles:auth.profiles(),periods:periods.list()});return;}
     if(req.method==='GET'&&pathname==='/api/members'){reply(res,200,{members:auth.listMembers(user)});return;}

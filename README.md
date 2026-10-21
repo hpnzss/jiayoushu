@@ -2,7 +2,7 @@
 
 供家庭使用的收入与资产管理网页，使用手机或电脑浏览器访问，可部署到群晖Docker。
 
-当前版本：**0.17.0-preview**。镜像仓库：[hpnzss/jiayoushu](https://hub.docker.com/r/hpnzss/jiayoushu)。
+当前版本：**0.17.1-preview**。镜像仓库：[hpnzss/jiayoushu](https://hub.docker.com/r/hpnzss/jiayoushu)。
 
 ## 功能与流程
 
