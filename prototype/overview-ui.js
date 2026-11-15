@@ -7,7 +7,17 @@
   for(const r of rows){const label=(r.category==='其他'?r.source:r.category||r.source)||'其他';if(!totals.has(label))totals.set(label,new Map());const sums=totals.get(label),key=active.includes(r.member)?r.member:null;sums.set(key,(sums.get(key)||0)+r.cents);}
   return [...totals].map(([label,sums])=>({label,sums,total:[...sums.values()].reduce((a,b)=>a+b,0)})).sort((a,b)=>b.total-a.total||a.label.localeCompare(b.label,'zh-CN'));
  }
- if(typeof module!=='undefined'&&module.exports){module.exports={select,sourceGroups};return;}
+ function monthlyGroups(rows,period){
+  const months=new Map(),unsplit=[];
+  for(const r of rows){
+   if(r.historical&&!period.fits(r,'month')){unsplit.push(r);continue;}
+   const month=r.date.slice(0,7);
+   if(!months.has(month))months.set(month,[]);
+   months.get(month).push({...r,category:'其他',source:r.historical?'历史汇总（未分来源）':r.source||r.category||'其他'});
+  }
+  return {months:[...months].sort(([a],[b])=>b.localeCompare(a)),unsplit};
+ }
+ if(typeof module!=='undefined'&&module.exports){module.exports={select,sourceGroups,monthlyGroups};return;}
  const overview=document.querySelector('[data-page=overview]'),income=document.querySelector('[data-page=income]');
  const tabs=document.createElement('nav');tabs.className='overview-tabs';tabs.setAttribute('aria-label','家庭概况分析标签');
  const assets=document.createElement('section');assets.id='overview-asset-analysis';income.id='overview-income';
@@ -21,7 +31,15 @@
  income.querySelector('.history-entry')?.remove();$('incomeSummary').hidden=true;
  income.prepend($('income'));
  $('incomeSummary').closest('[data-page=income]').querySelector('#incomeTrend')?.closest('section')?.setAttribute('hidden','');
- const sources=$('sources');sources.previousElementSibling.textContent='收入来源明细（含公积金）';
+ const sources=$('sources'),sourceLabel=sources.previousElementSibling,chart=$('memberBars');
+ const split=document.createElement('div'),sourcePanel=document.createElement('section');
+ split.className='income-source-layout';sourcePanel.className='income-source-summary';
+ chart.before(split);split.append(chart,sourcePanel);sourcePanel.append(sourceLabel,sources);
+ sourceLabel.textContent='收入来源明细（含公积金）';
+ const monthly=document.createElement('section');monthly.className='income-monthly-details';
+ monthly.innerHTML='<h3>每月收入明细（含公积金）</h3><p class="muted">点月份查看收入子项。「—」表示未记录。</p><div></div>';
+ split.after(monthly);
+ let lastRange='',expanded=new Set();
  function refresh(){
   const r=FamilyPanelFilters.report('income-composition'),active=(D.memberProfiles||[]).filter(p=>p.active).map(p=>p.key);
   const members=D.live?active:[...new Set(r.rows.map(row=>row.member))],groups=sourceGroups(r.rows,members),other=groups.some(g=>g.sums.has(null)),keys=other?[...members,null]:members;
@@ -29,6 +47,25 @@
   const rows=groups.map(g=>[g.label,...keys.map(k=>g.sums.has(k)?money(g.sums.get(k)):'—'),money(g.total)]);
   const footer=['合计',...keys.map(k=>money(groups.reduce((sum,g)=>sum+(g.sums.get(k)||0),0))),money(r.income)];
   sources.replaceChildren(makeReportTable('按来源与成员汇总的收入',headings,rows,groups.length?footer:null));
+  const {months,unsplit}=monthlyGroups(r.rows,FamilyHistoryPeriod),range=r.start+'|'+r.end;
+  if(range!==lastRange){lastRange=range;expanded=new Set(months.length?[months[0][0]]:[]);}
+  const cells=(label,g)=>[label,...keys.map(k=>g.sums.has(k)?money(g.sums.get(k)):'—'),money(g.total)];
+  const sections=months.map(([month,items])=>{
+   const parts=sourceGroups(items,members),sums=new Map();
+   for(const part of parts)for(const [key,value]of part.sums)sums.set(key,(sums.get(key)||0)+value);
+   return {month,rows:[cells(month,{sums,total:parts.reduce((sum,p)=>sum+p.total,0)}),...parts.map(p=>cells(p.label,p))]};
+  });
+  const separate=unsplit.map(row=>cells(FamilyHistoryPeriod.label(row)+' · 历史汇总（未拆分）',{sums:new Map([[members.includes(row.member)?row.member:null,row.cents]]),total:row.cents}));
+  const wrap=makeReportTable('按月份与来源汇总的收入',['月份／收入来源',...headings.slice(1)],[...sections.flatMap(x=>x.rows),...separate],groups.length?['所选期间合计',...footer.slice(1)]:null);
+  const table=wrap.querySelector('table');table.dataset.noSort='';const tableRows=[...table.tBodies[0].rows];let offset=0;
+  for(const {month,rows:groupRows}of sections){
+   const [summary,...children]=tableRows.slice(offset,offset+groupRows.length);offset+=groupRows.length;
+   summary.className='income-month-total';children.forEach(row=>row.className='income-month-source');
+   const b=document.createElement('button');b.type='button';b.textContent=month;b.className='month-disclosure';
+   const sync=()=>{const open=expanded.has(month);b.setAttribute('aria-expanded',String(open));children.forEach(row=>row.hidden=!open);};
+   b.onclick=()=>{if(expanded.has(month))expanded.delete(month);else expanded.add(month);sync();};summary.firstElementChild.replaceChildren(b);sync();
+  }
+  monthly.lastElementChild.replaceChildren(wrap);
  }
  const storageKey=()=> 'family-overview-tab:'+location.origin+':'+(root.currentFamilyUser?.member||'anonymous');
  function show(requested){if(!['overview','summary','asset-analysis','income','trend',''].includes(requested))return;
