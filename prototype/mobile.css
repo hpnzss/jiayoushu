@@ -59,6 +59,26 @@ html[data-standalone=true],html[data-standalone=true] body{touch-action:pan-x pa
 @media(max-width:760px){html[data-standalone=true] input:not([type=checkbox]):not([type=radio]):not([type=range]),html[data-standalone=true] select,html[data-standalone=true] textarea{font-size:16px}.flexible-entry-header{padding:16px}.flexible-entry-header .panel-head{flex-wrap:wrap}.flexible-entry-header .panel-head p{margin-bottom:0}.entry-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .entry-tabs{grid-template-columns:repeat(2,minmax(0,1fr))}
 
+.overview-tabs.entry-tabs,.overview-tabs{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);grid-template-columns:none;align-items:stretch;width:100%;box-sizing:border-box;gap:6px;padding:5px;border:1px solid var(--line);border-radius:14px;background:var(--surface);margin:10px 0 20px}
+.overview-tabs.entry-tabs button,.overview-tabs a{display:grid;place-items:center;min-width:0;min-height:44px;text-align:center;white-space:normal;overflow-wrap:anywhere;padding:8px 6px;border:0;border-radius:9px;box-shadow:none;background:transparent;color:var(--muted);font:inherit}
+.overview-tabs.entry-tabs button.active,.overview-tabs a.active{color:var(--accent);background:var(--accent-soft);font-weight:650;box-shadow:none}
+.report-table{max-width:100%;max-height:24rem;overflow:auto;margin-block:12px;position:relative}
+.report-table table{width:100%;min-width:100%;border-collapse:separate;border-spacing:0;font-variant-numeric:tabular-nums}
+.report-table th,.report-table td{padding:9px 12px;text-align:right;white-space:nowrap}
+.report-table thead th{position:sticky;top:0;z-index:2;background:var(--surface-high)}
+.report-table tr>:first-child{position:sticky;left:0;z-index:1;text-align:left;background:var(--surface)}
+.report-table thead tr>:first-child{z-index:3;background:var(--surface-high)}
+.report-table tfoot th,.report-table tfoot td{position:sticky;bottom:0;font-weight:700;background:var(--surface-high);z-index:2}
+.report-table tfoot tr>:first-child{z-index:3;background:var(--surface-high)}
+.income-data,.asset-distribution .report-table{margin-top:16px;border-top:1px solid var(--line)}
+.table-link{padding:4px 0;border:0;background:none;color:var(--green);font:inherit;text-decoration:underline;text-underline-offset:3px}
+.record-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:10px;align-items:end}
+.report-table .record-table tr>*{text-align:left}.report-table .record-table tr>:nth-child(5){text-align:right}.record-table td:last-child{min-width:7.5rem}
+.record-actions details{display:inline-block;margin-inline-start:8px;text-align:left}.record-actions details button{display:block}
+.record-table .recently-saved>*{background:var(--accent-soft)}
+.recent-records{grid-column:1/-1}.recent-records>summary{font-weight:650;cursor:pointer}
+@media(max-width:760px){.overview-tabs.entry-tabs button,.overview-tabs a{font-size:12px;min-height:44px}.record-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.record-filters .field{min-width:0}.report-table{max-height:20rem}.report-table th,.report-table td{padding:8px 10px}}
+
 /* Four destinations, with analysis tabs inside the household page. */
-.overview-tabs{display:flex;gap:8px;margin:10px 0 22px;padding:5px;background:var(--surface);border:1px solid var(--line);border-radius:14px}.overview-tabs a{flex:1;justify-content:center;text-align:center;min-width:0;margin:0;padding:10px 14px;border-radius:10px;color:var(--muted);background:transparent;font-weight:500}.overview-tabs a.active{color:var(--accent);background:var(--accent-soft);font-weight:650}.overview-income-totals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}.overview-income-totals span,.overview-income-totals small{display:block;color:var(--muted)}.overview-income-totals strong{display:block;font-size:26px;margin:6px 0;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}#overviewMetrics .stats{grid-template-columns:minmax(0,1fr)}
-@media(max-width:760px){.sidebar nav[aria-label="主导航"]{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));justify-items:stretch}.sidebar nav[aria-label="主导航"]>a{width:100%;min-width:0;margin:0;justify-self:stretch}.overview-tabs{gap:4px;margin:6px 0 16px}.overview-tabs a{font-size:13px;min-height:42px;padding:9px 4px}.overview-income-card .panel-head{flex-wrap:wrap;gap:10px}.overview-income-totals{gap:12px}.overview-income-totals strong{font-size:21px}.overview-income-totals small{font-size:11px}}
+
+@media(max-width:760px){.sidebar nav[aria-label="主导航"]{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));justify-items:stretch}.sidebar nav[aria-label="主导航"]>a{width:100%;min-width:0;margin:0;justify-self:stretch}}

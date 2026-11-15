@@ -26,10 +26,11 @@ function preset() {
   if ($('start').value <= D.today && $('end').value > D.today) $('end').value = D.today;
   render();
 }
+function makeReportTable(label,headings,rows,footer){const wrap=document.createElement('div');wrap.className='table-scroll report-table';wrap.tabIndex=0;wrap.setAttribute('role','region');wrap.setAttribute('aria-label',label);const table=document.createElement('table');for(const [tag,records] of [['thead',[headings]],['tbody',rows.length?rows:[['暂无记录']]],['tfoot',footer?[footer]:[]]]){if(!records.length)continue;const section=document.createElement(tag);for(const cells of records){const tr=document.createElement('tr');cells.forEach((value,i)=>{const td=document.createElement(tag==='thead'||i===0?'th':'td');if(tag==='thead'||i===0)td.scope=tag==='thead'?'col':'row';td.textContent=value;tr.append(td);});section.append(tr);}table.append(section);}wrap.append(table);return wrap;}
 function render() {
   try { current = FamilyPanelFilters.report('income-details',member); $('error').textContent = ''; }
   catch (e) { $('error').textContent = e.message; $('export').disabled = $('chartExport').disabled = true; return; }
-  $('export').disabled = $('chartExport').disabled = false;
+  $('chartExport').disabled = false;if(!window.FamilyRecordLayout)$('export').disabled=false;
   const r = FamilyPanelFilters.report('overview-metrics'),summary=FamilyPanelFilters.report('income-summary'),compositionReport=FamilyPanelFilters.report('income-composition');
   $('range').textContent = `${r.start} — ${r.end}${r.end === D.today ? (D.live ? ' · 截至今日' : ' · 截至演示数据日') : ''}`;
   $('assetValue').textContent = r.closing ? money(D.total(r.closing)) : '资料不足';
@@ -41,9 +42,10 @@ function render() {
   incomeTrend(r);
   chart(FamilyPanelFilters.report('asset-trend'));
   globalThis.FamilyIncomeComposition?.render();
-  const sources = Object.create(null);
+  if(window.FamilyOverview)window.FamilyOverview.refresh();else { const sources = Object.create(null);
   compositionReport.rows.forEach(x => {const category=x.category==='其他'?x.source:x.category||FamilyClient.incomeCategory(x.source);sources[category]=(sources[category]||0)+x.cents;});
   $('sources').innerHTML = Object.keys(sources).length ? '<div class="source-chips">' + Object.entries(sources).map(([k,v]) => `<span class="chip">${escapeHTML(k)} ${money(v)}</span>`).join('') + '</div>' : '<p class="muted">所选区间没有收入记录。</p>';
+  }
   const latest = D.snapshots.at(-1);
   $('distributionDate').textContent = D.live?'当前账面余额；未确认初始余额的账户显示“资料不足”':`采用 ${latest.date} 的完整盘点，与报告筛选独立`;
   const balances=D.live?D.balances:D.accounts.map((a,i)=>({...a,cents:latest.amounts[i],confirmedDate:latest.date}));
@@ -142,20 +144,24 @@ const pageInfo = {
   entry: ['智能录入','把记录变得轻松一点。','文字、截图和手动填写，最后都由你确认。'],
   income: ['收入统计','各自的努力，一起的积累。','查看成员与家庭收入，按月、按年和自选时间汇总。'],
   assets: ['资产盘点','钱在哪里，心里有数。','定期确认实际余额，让家庭资产更贴近真实情况。'],
-  settings: ['设置与备份','为家庭数据留一份安心。','家庭成员、AI 服务和备份，在这里统一管理。']
+  records: ['记录查询','记录查询','按日期、成员、账户和类型查找历史记录。'],
+  settings: ['设置','设置','管理家庭成员、历史导入和备份。']
 };
 function route() {
   const requested = location.hash.slice(1);
-  const alias = {trend:'overview',accounts:'assets',details:'overview',income:'overview',summary:'overview','asset-analysis':'overview'};
+  const layout=!!window.FamilyRecordLayout;
+  const alias = {trend:'overview',accounts:layout?'entry':'assets',assets:layout?'entry':'assets',details:layout?'records':'overview',income:'overview',summary:'overview','asset-analysis':'overview','entry-balances':'entry'};
   const key = alias[requested] || (pageInfo[requested] ? requested : 'overview');
-  if (requested !== key && !['summary','asset-analysis','income','details','trend'].includes(requested)) history.replaceState(null,'','#'+key);
+  if (requested !== key && !['summary','asset-analysis','income','details','trend','accounts','assets','entry-balances'].includes(requested)) history.replaceState(null,'','#'+key);
   document.querySelectorAll('[data-page]').forEach(p => p.hidden = p.dataset.page !== key);
   document.querySelectorAll('[data-route]').forEach(a => { const active = a.dataset.route === key; a.classList.toggle('active',active); if(active) a.setAttribute('aria-current','page'); else a.removeAttribute('aria-current'); });
   $('pageEyebrow').textContent = 'FAMILY FINANCE / ' + pageInfo[key][0];
   $('pageTitle').textContent = pageInfo[key][1]; $('pageSubtitle').textContent = pageInfo[key][2];
   $('reportControls').hidden = true;
-  $('export').hidden = key !== 'income';
+  $('export').hidden = key !== 'income' && key !== 'records';
   window.FamilyOverview?.show(requested);
+  if(key==='records')window.FamilyRecordLayout?.draw();
+  if(key==='entry'&&layout)window.FamilyEntry?.showView(requested==='assets'||requested==='accounts'?'accounts':requested==='entry-balances'?'balances':'flows');
   document.title='家有数';
   window.scrollTo(0,0);
   if(key==='settings'&&D.live)loadFx();
