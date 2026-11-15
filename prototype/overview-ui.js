@@ -48,7 +48,7 @@
   const footer=['合计',...keys.map(k=>money(groups.reduce((sum,g)=>sum+(g.sums.get(k)||0),0))),money(r.income)];
   sources.replaceChildren(makeReportTable('按来源与成员汇总的收入',headings,rows,groups.length?footer:null));
   const {months,unsplit}=monthlyGroups(r.rows,FamilyHistoryPeriod),range=r.start+'|'+r.end;
-  if(range!==lastRange){lastRange=range;expanded=new Set(months.length?[months[0][0]]:[]);}
+  if(range!==lastRange){lastRange=range;expanded=new Set();}
   const cells=(label,g)=>[label,...keys.map(k=>g.sums.has(k)?money(g.sums.get(k)):'—'),money(g.total)];
   const sections=months.map(([month,items])=>{
    const parts=sourceGroups(items,members),sums=new Map();

@@ -62,12 +62,12 @@ try{
  assert.equal(doc.querySelector('.income-source-layout #sources table')!==null,true);
  run('FamilyOverview.refresh()');
  const firstMonth=doc.querySelector('.income-monthly-details .month-disclosure');
- assert.equal(firstMonth.getAttribute('aria-expanded'),'true');
- assert.equal(firstMonth.closest('tr').nextElementSibling.hidden,false);
- firstMonth.click();
  assert.equal(firstMonth.getAttribute('aria-expanded'),'false');
  assert.equal(firstMonth.closest('tr').nextElementSibling.hidden,true);
+ firstMonth.click();
+ assert.equal(firstMonth.getAttribute('aria-expanded'),'true');
+ assert.equal(firstMonth.closest('tr').nextElementSibling.hidden,false);
  run('FamilyOverview.refresh()');
- assert.equal(doc.querySelector('.income-monthly-details .month-disclosure').getAttribute('aria-expanded'),'false');
+ assert.equal(doc.querySelector('.income-monthly-details .month-disclosure').getAttribute('aria-expanded'),'true');
  process.stdout.write('完整页面检查通过：分析与录入标签、别名导航、明细实时筛选、收入常显表格、资产分布表及表单初始化。\n');
 }finally{dom.window.close();}

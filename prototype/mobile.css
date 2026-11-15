@@ -96,3 +96,33 @@ html[data-standalone=true],html[data-standalone=true] body{touch-action:pan-x pa
 /* Four destinations, with analysis tabs inside the household page. */
 
 @media(max-width:760px){.sidebar nav[aria-label="主导航"]{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));justify-items:stretch}.sidebar nav[aria-label="主导航"]>a{width:100%;min-width:0;margin:0;justify-self:stretch}}
+
+nav.overview-tabs>a,nav.overview-tabs>a:first-child{display:grid;place-items:center;text-align:center;padding:8px 6px;white-space:normal}
+.asset-distribution .asset-type-columns{padding:10px 5px}
+.asset-distribution .asset-type-bar[aria-pressed=true]{outline:0;box-shadow:inset 0 0 0 2px var(--accent)}
+.asset-distribution .asset-type-columns .asset-type-bar:focus-visible{outline-offset:-2px}
+.asset-distribution .annotated-donut circle:is(:hover,:focus){stroke-width:24}
+.asset-distribution .annotated-donut .pie-leader{pointer-events:none}
+.query-rows>.report-table{overflow:auto;max-height:clamp(12rem,55dvh,30rem);overscroll-behavior-y:contain;scrollbar-gutter:stable}
+.query-rows .record-table thead{position:sticky;top:0;z-index:5;background:var(--surface-high)}
+.query-rows .record-table thead th{position:static;inset:auto;background:var(--surface-high)}
+.query-rows .record-table thead th:first-child{position:sticky;left:0;z-index:1}
+@media(min-width:761px){
+ .query-rows>.report-table{overflow:visible;max-height:none;scrollbar-gutter:auto}
+ .query-rows .record-table{table-layout:fixed;width:100%;min-width:0}
+ .query-rows .record-table tr>*{min-width:0;white-space:normal;overflow-wrap:anywhere}
+ .query-rows .record-table tr>:first-child{width:17%}
+ .query-rows .record-table tr>:nth-child(4){width:19%}
+ .query-rows .record-table tr>:last-child{width:13%}
+ .query-rows .record-table th button{white-space:normal}
+}
+@media(max-width:760px){
+ body:has(main [data-page=entry]:not([hidden])) #continueGuide,
+ body:has(main [data-page=records]:not([hidden])) #continueGuide{display:none}
+ .asset-distribution .annotated-donut{max-width:360px}
+ .asset-distribution .annotated-donut :is(.pie-category,.pie-amount,.pie-percentage){font-size:10px}
+ .asset-distribution .annotated-donut .pie-total{font-size:12px}
+ .asset-distribution-grid h3{font-size:12px}
+ html body main .field,html body .maintenance-dialog .field{font-size:12px}
+ html body main select,html[data-standalone=true] body main select,html body .maintenance-dialog select,html body main .date-control .date-control-value{font-size:14px;min-width:0;font-weight:400;line-height:1.35}
+}
